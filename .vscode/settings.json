@@ -1,0 +1,37 @@
+{
+  // Chromy peacock — the window chrome in iridescent peacock: deep teal body,
+  // cyan-green sheen, purple eye-spot badges, a glint of gold when debugging.
+  // (peacock.color is honored by the Peacock extension if installed; the explicit
+  // workbench.colorCustomizations below work with or without it.)
+  "peacock.color": "#0b5c6d",
+  "workbench.colorCustomizations": {
+    "titleBar.activeBackground": "#0a4a5e",
+    "titleBar.activeForeground": "#c8fbff",
+    "titleBar.inactiveBackground": "#083744",
+    "titleBar.inactiveForeground": "#7fb5bd",
+
+    "activityBar.background": "#0d5c6d",
+    "activityBar.foreground": "#8ff7e9",
+    "activityBar.inactiveForeground": "#4d9aa5",
+    "activityBar.activeBorder": "#37e6c8",
+    "activityBarBadge.background": "#a86cf0",
+    "activityBarBadge.foreground": "#ffffff",
+
+    "statusBar.background": "#0f7c86",
+    "statusBar.foreground": "#e6fdff",
+    "statusBarItem.hoverBackground": "#12939f",
+    "statusBarItem.remoteBackground": "#0b5c6d",
+    "statusBarItem.remoteForeground": "#8ff7e9",
+    "statusBar.debuggingBackground": "#c9a227",
+    "statusBar.debuggingForeground": "#1a1500",
+    "statusBar.noFolderBackground": "#5c4d7d",
+
+    "tab.activeBorderTop": "#37e6c8",
+    "panelTitle.activeBorder": "#37e6c8",
+    "sash.hoverBorder": "#37e6c8",
+    "focusBorder": "#2bb8c9",
+    "progressBar.background": "#a86cf0",
+    "list.highlightForeground": "#37e6c8",
+    "textLink.foreground": "#3fd3e6"
+  }
+}
