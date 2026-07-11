@@ -7,9 +7,12 @@ the shared engine v2.
 
 ## Run
 - **Browser:** open `index.html`.
-- **Headless batch:** `node runner.mjs --reps 50` — runs the same sim core via `vm` and writes
-  self-describing packets to MongoDB through the research Server.
-- **Smoke test:** `node smoketest.mjs` — no DB; asserts the model invariant and prints metrics.
+- **Headless batch:** `node runner.mjs --reps 50 [--params '{"laneCount":2}']` — runs the same
+  sim core via `vm` and writes self-describing packets to MongoDB through the research Server.
+- **Smoke test:** `node smoketest.mjs` — no DB, ~15 s; asserts conservation, collision-free
+  running, the analytic IDM equilibrium, and renderer sanity.
+- **Validation:** `node validate.mjs` — no DB, ~1.5 min; fundamental diagram vs analytic IDM,
+  stop-and-go wave speed, onramp bottleneck breakdown, all against literature bands.
 
 ## Layout
 - `src/` — sim core (`engine`, `params`, `world`, `agent`, `observer`, `datamanager`, `charts`,
