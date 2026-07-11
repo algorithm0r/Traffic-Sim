@@ -215,14 +215,26 @@ var World = class World {
       }
       if (urgency > 0.3) continue;   // exit-bound: no discretionary moves
 
+      // courtesy: right-lane driver alongside an active onramp moves left to open the
+      // merge lane (the observed US "zip" behavior; raises merge-zone discharge)
+      let courtesy = 0;
+      if (veh.lane === this.laneCount - 1 && this.laneCount > 1) {
+        for (const ramp of this.onramps) {
+          if (!ramp.vehicles.length) continue;
+          const d = this.distAhead(veh.x, (ramp.x + ramp.len) % this.L);
+          if (d < ramp.len + 250) { courtesy = 0.5; break; }
+        }
+      }
+
       // discretionary: try right first (keep-right), then left
-      if (veh.lane < this.laneCount - 1 &&
+      if (!courtesy && veh.lane < this.laneCount - 1 &&
           this.tryChange(veh, veh.lane + 1, P.keepRightBias, veh.p.bSafe, false)) {
         veh.cooldown = P.laneChangeCooldown; continue;
       }
       const leftBanned = (veh.p.truck && veh.lane === 1 && this.laneCount >= 3) || planningLeftBlock;
       if (veh.lane > 0 && !leftBanned &&
-          this.tryChange(veh, veh.lane - 1, -P.keepRightBias, veh.p.bSafe, false)) {
+          this.tryChange(veh, veh.lane - 1, courtesy - P.keepRightBias * (courtesy ? 0 : 1),
+                         veh.p.bSafe, false)) {
         veh.cooldown = P.laneChangeCooldown;
       }
     }
@@ -336,16 +348,24 @@ var World = class World {
       ramp.nextArrival -= dt;
       while (ramp.nextArrival <= 0) { ramp.queue++; ramp.nextArrival += this.expo(P.demand); }
 
-      // release from queue when the entrance is clear
+      // release from queue when the entrance is clear; entry speed respects the gap to
+      // the last vehicle on the ramp (entering at full speed toward a stopped leader was
+      // the genesis of the ramp pile-ups the probe found)
       if (ramp.queue > 0) {
         const prof = this.sampleProfile();
-        const entranceClear = ramp.vehicles.every(
-          (rv) => this.distAhead(ramp.x, rv.x) > prof.s0 + rv.len + 2);
-        if (entranceClear) {
+        let rear = null, rearProg = Infinity;
+        for (const rv of ramp.vehicles) {
+          const p = this.distAhead(ramp.x, rv.x);
+          if (p < rearProg) { rearProg = p; rear = rv; }
+        }
+        if (!rear || rearProg > prof.s0 + rear.len + 6) {
           ramp.queue--;
           ramp.spawned++;
           this.stats.spawned++;
-          const veh = new Vehicle(this.nextId++, ramp.x, rightLane, 12, prof,
+          const vEntry = rear && rearProg < 40
+            ? Math.min(12, rear.v + Math.sqrt(2 * prof.b * Math.max(rearProg - rear.len - prof.s0, 0)))
+            : 12;
+          const veh = new Vehicle(this.nextId++, ramp.x, rightLane, vEntry, prof,
                                   this.sampleDest(ramp.x), this.time);
           veh.onRamp = ramp;
           veh.visLane = rightLane + 1;   // drawn on the ramp stub until merged
@@ -353,22 +373,51 @@ var World = class World {
         }
       }
 
-      // ramp vehicle dynamics: IDM against the ramp leader AND a wall at the ramp end
+      // ramp vehicle dynamics: IDM against the ramp leader AND a wall at the ramp end.
+      // ALL geometry is signed, in ramp-local coordinates (progress from the gore) — the
+      // wrap-safe gap() reads an overlap as ~loopLength of free road, which twice now has
+      // let vehicles ghost through each other (validation C caught both).
       ramp.vehicles.sort((a, b) => this.distAhead(ramp.x, a.x) - this.distAhead(ramp.x, b.x));
-      const end = (ramp.x + ramp.len) % this.L;
+      const progs = ramp.vehicles.map((rv) =>
+        Math.min(this.distAhead(ramp.x, rv.x), ramp.len));
       for (let i = ramp.vehicles.length - 1; i >= 0; i--) {
         const rv = ramp.vehicles[i];
         const leader = (i < ramp.vehicles.length - 1) ? ramp.vehicles[i + 1] : null;
-        const gapWall = this.distAhead(rv.x, end);
-        const accLead = rv.idmAcc(leader ? this.gap(rv, leader) : null, leader ? leader.v : 0);
+        let prog = progs[i];
+        let leadGap = null;
+        if (leader) {
+          leadGap = progs[i + 1] - leader.len - prog;          // signed — never wraps
+          if (leadGap < 0) {                                   // safety net, mirrors mainline
+            this.stats.collisions++;
+            prog = Math.max(progs[i + 1] - leader.len - 0.3, 0);
+            leadGap = 0.3;
+            rv.v = Math.min(rv.v, leader.v);
+          }
+        }
+        const gapWall = ramp.len - 0.5 - prog;
+        const accLead = rv.idmAcc(leadGap != null ? Math.max(leadGap, 0.1) : null,
+                                  leader ? leader.v : 0);
         const accWall = rv.idmAcc(Math.max(gapWall, 0.1), 0);
+        // over the first 70% of the ramp, drive toward the MAINLINE traffic (speed-match
+        // for the merge, like a real accel lane) — the wall only binds near the end
         rv.acc = Math.min(accLead, accWall);
+        if (prog < ramp.len * 0.7) {
+          const { leader: ml } = this.neighborsAt(this.lanes[rightLane], rv.x);
+          const accMain = (ml && !this.overlaps(rv, ml))
+            ? rv.idmAcc(this.gap(rv, ml), ml.v) : rv.idmAcc(null, 0);
+          rv.acc = Math.min(accLead, Math.max(accWall, accMain));
+        }
         const vNew = Math.max(0, rv.v + rv.acc * dt);
-        rv.x = (rv.x + (rv.v + vNew) / 2 * dt) % this.L;
+        prog = prog + (rv.v + vNew) / 2 * dt;
         rv.v = vNew;
+        if (prog >= ramp.len - 0.5) { prog = ramp.len - 0.5; rv.v = 0; }   // hard wall
+        if (leader) prog = Math.min(prog, progs[i + 1] - leader.len - 0.3); // never pass
+        prog = Math.max(prog, 0);
+        progs[i] = prog;
+        rv.x = (ramp.x + prog) % this.L;
 
         // merge: MOBIL safety with urgency growing along the ramp
-        const progress = clamp(this.distAhead(ramp.x, rv.x) / ramp.len, 0, 1);
+        const progress = clamp(prog / ramp.len, 0, 1);
         const bSafeM = 4 + progress * 4;
         const { leader: nl, follower: nf } = this.neighborsAt(this.lanes[rightLane], rv.x);
         const okLead = !nl || (!this.overlaps(rv, nl) &&
@@ -381,6 +430,7 @@ var World = class World {
           this.vehicles.push(rv);
           this.insertIntoLaneArr(rv, rightLane);  // live array: next merger sees this one
           ramp.vehicles.splice(i, 1);
+          progs.splice(i, 1);                     // keep progs aligned with ramp.vehicles
           this.stats.merges++;
         }
       }
