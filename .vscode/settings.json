@@ -1,37 +1,36 @@
 {
   // Chromy peacock — the window chrome in iridescent peacock: deep teal body,
   // cyan-green sheen, purple eye-spot badges, a glint of gold when debugging.
-  // (peacock.color is honored by the Peacock extension if installed; the explicit
-  // workbench.colorCustomizations below work with or without it.)
+  // Mirror of sim/.vscode/settings.json so the theme applies whether the container
+  // or the component repo is opened as the workspace.
   "peacock.color": "#0b5c6d",
   "workbench.colorCustomizations": {
-    "titleBar.activeBackground": "#0a4a5e",
-    "titleBar.activeForeground": "#c8fbff",
-    "titleBar.inactiveBackground": "#083744",
-    "titleBar.inactiveForeground": "#7fb5bd",
-
-    "activityBar.background": "#0d5c6d",
-    "activityBar.foreground": "#8ff7e9",
-    "activityBar.inactiveForeground": "#4d9aa5",
+    "titleBar.activeBackground": "#0b5c6d",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#0b5c6d99",
+    "titleBar.inactiveForeground": "#e7e7e799",
+    "activityBar.background": "#10839b",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
     "activityBar.activeBorder": "#37e6c8",
-    "activityBarBadge.background": "#a86cf0",
-    "activityBarBadge.foreground": "#ffffff",
-
-    "statusBar.background": "#0f7c86",
-    "statusBar.foreground": "#e6fdff",
-    "statusBarItem.hoverBackground": "#12939f",
+    "activityBarBadge.background": "#f38be1",
+    "activityBarBadge.foreground": "#15202b",
+    "statusBar.background": "#0b5c6d",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#10839b",
     "statusBarItem.remoteBackground": "#0b5c6d",
-    "statusBarItem.remoteForeground": "#8ff7e9",
-    "statusBar.debuggingBackground": "#c9a227",
-    "statusBar.debuggingForeground": "#1a1500",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "statusBar.debuggingBackground": "#6d1c0b",
+    "statusBar.debuggingForeground": "#e7e7e7",
     "statusBar.noFolderBackground": "#5c4d7d",
-
     "tab.activeBorderTop": "#37e6c8",
     "panelTitle.activeBorder": "#37e6c8",
-    "sash.hoverBorder": "#37e6c8",
+    "sash.hoverBorder": "#10839b",
     "focusBorder": "#2bb8c9",
     "progressBar.background": "#a86cf0",
     "list.highlightForeground": "#37e6c8",
-    "textLink.foreground": "#3fd3e6"
+    "textLink.foreground": "#3fd3e6",
+    "activityBar.activeBackground": "#10839b",
+    "commandCenter.border": "#e7e7e799"
   }
 }
