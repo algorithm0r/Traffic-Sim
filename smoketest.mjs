@@ -9,7 +9,8 @@ import vm from 'vm';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ctx = { Math, console, Date };
 vm.createContext(ctx);
-for (const f of ['util.js', 'params.js', 'engine.js', 'agent.js', 'world.js']) {
+for (const f of ['util.js', 'params.js', 'engine.js', 'agent.js', 'world.js',
+                 'observer.js', 'charts.js']) {
   vm.runInContext(readFileSync(path.join(__dirname, 'src', f), 'utf8'), ctx, { filename: f });
 }
 
@@ -95,6 +96,35 @@ function run(overrides, ticks) {
   check('population bounded', m.count < 1200, `n=${m.count}`);
   console.log(`      meanV=${(m.meanV * 2.23694).toFixed(1)} mph  density=${m.density.toFixed(1)} veh/km/ln` +
               `  travelTime=${(s.travelTimeSum / Math.max(s.travelTimeN, 1)).toFixed(0)} s avg`);
+}
+
+// --- T4: renderer draws without exceptions against a recording stub ctx -----------------
+{
+  console.log('T4  renderer smoke (stub canvas)');
+  Object.assign(P, JSON.parse(JSON.stringify(BASE)), { seed: 3 });
+  const world = new ctx.World();
+  const engine = new ctx.GameEngine();
+  for (let t = 1; t <= 400; t++) { engine.tick = t; world.update(engine); }
+  const observer = new ctx.Observer(world);
+  let calls = 0, rects = 0;
+  const stub = new Proxy({ canvas: { width: 1150, height: 760 } }, {
+    get(t, k) {
+      if (k === 'canvas') return t.canvas;
+      return (...a) => { calls++; if (k === 'fillRect') rects++; };
+    },
+    set() { return true; },
+  });
+  let threw = null;
+  try {
+    observer.draw(stub);
+    const speed = new ctx.LineGraph(0, 0, 100, 50, 'x');
+    speed.push(1); speed.push(2); speed.draw(stub);
+    const fd = new ctx.ScatterGraph(0, 0, 100, 50, 'x', 0, 80, 0, 2600);
+    fd.push(10, 1000); fd.draw(stub);
+  } catch (e) { threw = e; }
+  check('draw() completes', threw === null, threw ? threw.message : undefined);
+  check('vehicles drawn', rects > world.vehicles.length,
+        `fillRects=${rects} vehicles=${world.vehicles.length} (calls=${calls})`);
 }
 
 console.log(failures === 0 ? 'PASS' : `FAIL (${failures} check(s))`);

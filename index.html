@@ -5,11 +5,11 @@
   <title>Traffic Sim</title>
   <style>
     body { margin: 0; background: #11151c; color: #cdd2da; font-family: system-ui, sans-serif; display: flex; }
-    #controlPanel { width: 240px; padding: 14px; box-sizing: border-box; }
+    #controlPanel { width: 250px; padding: 14px; box-sizing: border-box; }
     #controlPanel h3 { margin: 0 0 10px; }
     .ctl { display: block; margin: 10px 0; font-size: 13px; }
     .ctl input { width: 100%; }
-    button { background: #2b6cf6; color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+    button { background: #2b6cf6; color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; margin-right: 6px; }
     #status { font-size: 12px; color: #8a8f98; margin-top: 12px; }
     canvas { background: #0b0e13; display: block; }
   </style>
@@ -18,9 +18,10 @@
   <div id="controlPanel">
     <h3>Traffic Sim</h3>
     <button onclick="reset()">Reset</button>
+    <button id="colorBtn" onclick="toggleColor()">Color: speed</button>
     <div id="status"></div>
   </div>
-  <canvas id="gameWorld" width="800" height="600"></canvas>
+  <canvas id="gameWorld" width="1150" height="760"></canvas>
 
   <!-- socket.io client (for the standard DB client in socket mode) -->
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
