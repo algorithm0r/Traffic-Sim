@@ -2,18 +2,46 @@
 // Single source of truth for every tunable. Serialized verbatim into every saved data
 // packet (see datamanager.js) so any run reconstructs from its stored parameters.
 // Declared `var` so it's a global in the browser AND in the headless vm context.
+//
+// Units are SI (m, s, m/s) throughout, except speedLimitMph — the one human-facing knob.
 var PARAMETERS = {
-  // --- model ---
-  nAgents: 300,         // number of drifting agents
-  drift: 0.4,           // mean step in +x per tick
-  jitter: 1.2,          // std-dev of random step (x and y)
+  // --- road geometry ---
+  loopLength: 6000,        // m of mainline loop
+  laneCount: 3,            // through lanes; 0 = leftmost (fast). UI range 2-4; tests may use 1
+  numInterchanges: 3,      // each interchange = exit (offramp) then onramp, both on the right
+  rampLength: 260,         // m of onramp acceleration lane
+  rampGap: 220,            // m from an exit gore to its paired onramp gore
 
-  // --- engine ---
-  updatesPerDraw: 1,    // fast-forward: sim updates per rendered frame
+  // --- traffic ---
+  speedLimitMph: 65,
+  initialDensity: 14,      // veh/km/lane seeded on the mainline at reset
+  demand: 900,             // veh/h arriving at EACH onramp (Poisson)
+  truckFraction: 0.10,     // share of spawns that are trucks
+  profileVariability: 1,   // scales within-archetype spread; 0 = homogeneous (used by tests)
+  throughFraction: 0,      // share of SEEDED mainline vehicles that never exit (experiments)
+  forceArchetype: null,    // e.g. 'normal' — every driver identical archetype (tests)
+
+  // --- driver model shared constants (IDM + MOBIL) ---
+  delta: 4,                // IDM acceleration exponent (Treiber et al. 2000)
+  bMax: 9,                 // m/s^2 physical emergency-braking cap
+  laneChangeCooldown: 4,   // s between lane changes (≈ duration of a real change)
+  mobilThreshold: 0.1,     // m/s^2 MOBIL switching threshold (Kesting et al. 2007)
+  keepRightBias: 0.2,      // m/s^2 mild US-style keep-right acceleration bias
+  mandatoryBoost: 3.0,     // m/s^2 added rightward incentive at full exit urgency
+
+  // --- integration ---
+  dt: 0.05,                // s per engine tick (ballistic update; IDM is stable well past this)
+  updatesPerDraw: 2,       // fast-forward: sim updates per rendered frame
+  seed: -1,                // -1 = random each reset; >= 0 = reproducible run
+
+  // --- rendering ---
+  legs: 4,                 // horizontal legs the loop is folded into (stacked vertically)
+  colorMode: 'speed',      // 'speed' | 'type'
 
   // --- data collection ---
-  reportingPeriod: 30,  // sample the metric every N ticks
-  epoch: 600,           // a run ends (and ships a packet) at N ticks
+  reportingPeriod: 100,    // ticks between samples (= 5 s at dt 0.05)
+  epoch: 36000,            // ticks per run/packet (= 30 min)
+  detectorFracs: [0.5],    // loop-detector positions as fractions of loopLength
 
   // --- database (the standard vendored client, src/db.js) ---
   db: {
@@ -25,10 +53,36 @@ var PARAMETERS = {
   },
 };
 
+// Driver archetypes. IDM values follow Treiber, Hennecke & Helbing 2000 (Phys. Rev. E 62)
+// and Treiber & Kesting, *Traffic Flow Dynamics* (2013) ch. 11; the spreads reflect the
+// heterogeneity found by NGSIM trajectory calibration (Kesting & Treiber 2008): T ~ 1.0-2.2 s,
+// a ~ 0.6-1.5 m/s^2. Each [mean, sd] is sampled per driver (sd scaled by profileVariability).
+//   v0mult — desired speed as multiple of the limit    T — time headway (s)
+//   a — max acceleration (m/s^2)                       b — comfortable braking (m/s^2)
+//   s0 — standstill min gap (m)                        len — vehicle length (m)
+//   politeness — MOBIL p                               bSafe — max braking imposed on others
+//   exitPrep — m before their exit drivers start working right
+var ARCHETYPES = {
+  aggressive: { share: 0.20, v0mult: [1.16, 0.05], T: [1.00, 0.10], a: [1.4, 0.10],
+                b: [2.1, 0.15], s0: [2.0, 0.20], len: 4.8, politeness: 0.10, bSafe: 5.0,
+                exitPrep: 700,  truck: false },
+  normal:     { share: 0.50, v0mult: [1.04, 0.04], T: [1.45, 0.15], a: [1.0, 0.10],
+                b: [1.7, 0.15], s0: [2.5, 0.30], len: 4.8, politeness: 0.35, bSafe: 4.0,
+                exitPrep: 1300, truck: false },
+  cautious:   { share: 0.20, v0mult: [0.94, 0.04], T: [1.85, 0.20], a: [0.8, 0.08],
+                b: [1.4, 0.12], s0: [3.0, 0.30], len: 4.8, politeness: 0.60, bSafe: 3.5,
+                exitPrep: 2000, truck: false },
+  truck:      { share: 0.10, v0mult: [0.88, 0.03], T: [1.70, 0.15], a: [0.6, 0.06],
+                b: [1.2, 0.10], s0: [3.5, 0.30], len: 16,  politeness: 0.40, bSafe: 3.5,
+                exitPrep: 1800, truck: true },
+};
+
 // Schema drives the auto-generated control panel (ui.js). One entry per live-tunable.
 var PARAM_SCHEMA = [
-  { key: 'nAgents', label: 'Agents', min: 10, max: 2000, step: 10, resets: true },
-  { key: 'drift', label: 'Drift', min: -2, max: 2, step: 0.1 },
-  { key: 'jitter', label: 'Jitter', min: 0, max: 5, step: 0.1 },
-  { key: 'updatesPerDraw', label: 'Speed', min: 1, max: 100, step: 1 },
+  { key: 'laneCount', label: 'Lanes', min: 2, max: 4, step: 1, resets: true },
+  { key: 'initialDensity', label: 'Init density (veh/km/ln)', min: 2, max: 45, step: 1, resets: true },
+  { key: 'demand', label: 'Ramp demand (veh/h)', min: 0, max: 2000, step: 50 },
+  { key: 'speedLimitMph', label: 'Speed limit (mph)', min: 45, max: 80, step: 5 },
+  { key: 'truckFraction', label: 'Truck share', min: 0, max: 0.3, step: 0.05 },
+  { key: 'updatesPerDraw', label: 'Speed (updates/frame)', min: 1, max: 60, step: 1 },
 ];
