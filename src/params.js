@@ -36,6 +36,17 @@ var PARAMETERS = {
   throughFraction: 0,      // share of SEEDED mainline vehicles that never exit (experiments)
   forceArchetype: null,    // e.g. 'normal' — every driver identical archetype (tests)
 
+  // --- human control loop (v0.3) ---
+  // Drivers are INTERMITTENT controllers: at each decision point they perceive (noisily),
+  // compute commands (imperfectly), then hold them open-loop for tReact seconds. Lane
+  // keeping is satisficing: no correction inside the laneTol comfort band. The ideal
+  // controller is a POINT in this space — tReact=dt, errors 0, laneTol large — not a
+  // separate mode. An always-on emergency reflex (loom response) sits under the slow
+  // loop; without it realistic tReact is unsurvivable, with it crashes are possible but
+  // rare — a measured output, not an impossibility.
+  emergencyDecel: 6.5,     // m/s^2 required-decel threshold that trips the reflex
+  startleDelay: 0.15,      // s to the forced decision after an emergency
+
   // --- driver model shared constants (IDM + MOBIL) ---
   delta: 4,                // IDM acceleration exponent (Treiber et al. 2000)
   bMax: 9,                 // m/s^2 physical emergency-braking cap
@@ -77,20 +88,42 @@ var PARAMETERS = {
 //   s0 — standstill min gap (m)                        len — vehicle length (m)
 //   politeness — MOBIL p                               bSafe — max braking imposed on others
 //   exitPrep — m before their exit drivers start working right
+// Human control loop (v0.3), each [mean, sd] per driver:
+//   tReact — s between decision points; commands held open-loop in between (steering
+//            intermittency 0.3-0.8 s in the literature; brake-to-unexpected 0.7-1.5 s is
+//            covered by the emergency reflex, not tReact)
+//   percErr — fractional σ on perceived gap (Δv gets 2×: humans read looming, not speed)
+//   motorErr — σ (rad) on executed TIRE angle (wheel jitter / ~15:1 steering ratio);
+//              pedal gets motorErr×20 in m/s^2
+//   laneTol — m from the lane LINE the driver tolerates; inside the comfort band there
+//             is NO lateral correction (satisficing lane keeping)
 var ARCHETYPES = {
   aggressive: { share: 0.20, v0mult: [1.16, 0.05], T: [1.00, 0.10], a: [1.4, 0.10],
                 b: [2.1, 0.15], s0: [2.0, 0.20], len: 4.8, width: 1.8, politeness: 0.10,
-                bSafe: 5.0, exitPrep: 700,  truck: false },
+                bSafe: 5.0, exitPrep: 700,  truck: false,
+                tReact: [0.35, 0.08], percErr: [0.08, 0.02], motorErr: [0.0004, 0.00015],
+                laneTol: [0.25, 0.08] },
   normal:     { share: 0.50, v0mult: [1.04, 0.04], T: [1.45, 0.15], a: [1.0, 0.10],
                 b: [1.7, 0.15], s0: [2.5, 0.30], len: 4.8, width: 1.8, politeness: 0.35,
-                bSafe: 4.0, exitPrep: 1300, truck: false },
+                bSafe: 4.0, exitPrep: 1300, truck: false,
+                tReact: [0.50, 0.12], percErr: [0.08, 0.02], motorErr: [0.0004, 0.00015],
+                laneTol: [0.40, 0.10] },
   cautious:   { share: 0.20, v0mult: [0.94, 0.04], T: [1.85, 0.20], a: [0.8, 0.08],
                 b: [1.4, 0.12], s0: [3.0, 0.30], len: 4.8, width: 1.8, politeness: 0.60,
-                bSafe: 3.5, exitPrep: 2000, truck: false },
+                bSafe: 3.5, exitPrep: 2000, truck: false,
+                tReact: [0.70, 0.15], percErr: [0.08, 0.02], motorErr: [0.0004, 0.00015],
+                laneTol: [0.55, 0.10] },
   truck:      { share: 0.10, v0mult: [0.88, 0.03], T: [1.70, 0.15], a: [0.6, 0.06],
                 b: [1.2, 0.10], s0: [3.5, 0.30], len: 16,  width: 2.5, politeness: 0.40,
-                bSafe: 3.5, exitPrep: 1800, truck: true },
+                bSafe: 3.5, exitPrep: 1800, truck: true,
+                tReact: [0.55, 0.10], percErr: [0.07, 0.02], motorErr: [0.0003, 0.0001],
+                laneTol: [0.45, 0.10] },
 };
+
+// Overrides that recover the IDEAL controller (the v0.1/v0.2 validated behavior) —
+// applied by the test suites; experiments interpolate between this point and the
+// archetype values above.
+var IDEAL_CONTROL = { tReact: [0.05, 0], percErr: [0, 0], motorErr: [0, 0], laneTol: [1.5, 0] };
 
 // Schema drives the auto-generated control panel (ui.js). One entry per live-tunable.
 var PARAM_SCHEMA = [

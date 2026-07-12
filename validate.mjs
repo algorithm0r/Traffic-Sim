@@ -38,6 +38,10 @@ function check(label, cond, detail) {
 function fresh(overrides) {
   Object.assign(P, JSON.parse(JSON.stringify(BASE)), overrides);
   Object.assign(ctx.ARCHETYPES, JSON.parse(JSON.stringify(BASE_ARCH)));
+  // validation experiments are CONTROL runs: ideal-controller point (v0.3)
+  for (const k of Object.keys(ctx.ARCHETYPES)) {
+    Object.assign(ctx.ARCHETYPES[k], JSON.parse(JSON.stringify(ctx.IDEAL_CONTROL)));
+  }
   return null;
 }
 

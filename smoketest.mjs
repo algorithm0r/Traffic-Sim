@@ -16,6 +16,7 @@ for (const f of ['util.js', 'params.js', 'engine.js', 'agent.js', 'world.js',
 
 const P = ctx.PARAMETERS;
 const BASE = JSON.parse(JSON.stringify(P));
+const BASE_ARCH = JSON.parse(JSON.stringify(ctx.ARCHETYPES));
 let failures = 0;
 
 function check(label, cond, detail) {
@@ -23,8 +24,15 @@ function check(label, cond, detail) {
   if (!cond) failures++;
 }
 
-function run(overrides, ticks) {
+// T1-T7 are the CONTROL suites: they run at the ideal-controller point (tReact=dt,
+// zero perception/motor error, laneTol collapsing the comfort band). T8+ set
+// human=true to run with the realistic archetype values.
+function run(overrides, ticks, human) {
   Object.assign(P, JSON.parse(JSON.stringify(BASE)), overrides);
+  for (const k of Object.keys(ctx.ARCHETYPES)) {
+    Object.assign(ctx.ARCHETYPES[k], JSON.parse(JSON.stringify(BASE_ARCH[k])));
+    if (!human) Object.assign(ctx.ARCHETYPES[k], JSON.parse(JSON.stringify(ctx.IDEAL_CONTROL)));
+  }
   const world = new ctx.World();
   const engine = new ctx.GameEngine();
   for (let t = 1; t <= ticks; t++) { engine.tick = t; world.update(engine); }
@@ -177,6 +185,58 @@ function run(overrides, ticks) {
   check('population bounded', m.count < 1200, `n=${m.count}`);
   console.log(`      meanV=${(m.meanV * 2.23694).toFixed(1)} mph  aborts=${s.aborts}` +
               `  travelTime=${(s.travelTimeSum / Math.max(s.travelTimeN, 1)).toFixed(0)} s avg`);
+}
+
+// --- T8: human control loop — lane wander emerges, bounded, in-lane ---------------------
+{
+  console.log('T8  human loop: wander emerges from tReact + motor noise + comfort band');
+  Object.assign(P, JSON.parse(JSON.stringify(BASE)), {
+    bodyModel: 'bicycle', laneCount: 1, numInterchanges: 0, initialDensity: 8,
+    loopLength: 3000, profileVariability: 0, forceArchetype: 'normal', truckFraction: 0,
+    seed: 42,
+  });
+  for (const k of Object.keys(ctx.ARCHETYPES)) {
+    Object.assign(ctx.ARCHETYPES[k], JSON.parse(JSON.stringify(BASE_ARCH[k])));
+  }
+  const world = new ctx.World();
+  const engine = new ctx.GameEngine();
+  for (let t = 1; t <= 6000; t++) { engine.tick = t; world.update(engine); }  // 300 s settle
+  const ys = new Map(world.vehicles.map((v) => [v.id, []]));
+  for (let t = 0; t < 6000; t++) {                                            // 300 s observe
+    engine.tick++; world.update(engine);
+    if (t % 20 === 0) for (const v of world.vehicles) ys.get(v.id).push(v.y);
+  }
+  const center = world.laneCenter(0);
+  let sdSum = 0, maxDev = 0;
+  for (const arr of ys.values()) {
+    const m = arr.reduce((s, x) => s + x, 0) / arr.length;
+    sdSum += Math.sqrt(arr.reduce((s, x) => s + (x - m) * (x - m), 0) / arr.length);
+    for (const x of arr) maxDev = Math.max(maxDev, Math.abs(x - center));
+  }
+  const meanSD = sdSum / ys.size;
+  const m = world.metrics();
+  check('wander EXISTS (mean lateral SD > 0.02 m)', meanSD > 0.02, `SD=${meanSD.toFixed(3)} m`);
+  check('wander in the empirical band (SD < 0.45 m)', meanSD < 0.45, `SD=${meanSD.toFixed(3)} m`);
+  check('drivers stay in lane (max |y-c| < 0.8 m)', maxDev < 0.8, `max=${maxDev.toFixed(2)} m`);
+  check('collision-free', m.stats.collisions + m.stats.sideswipes === 0,
+        `rear=${m.stats.collisions} side=${m.stats.sideswipes}`);
+}
+
+// --- T9: human control loop under traffic — the emergency reflex earns its keep ---------
+{
+  console.log('T9  human loop: realistic drivers in traffic, reflex prevents crashes');
+  const world = run({
+    bodyModel: 'bicycle', laneCount: 3, numInterchanges: 0, initialDensity: 15,
+    loopLength: 4000, profileVariability: 1, truckFraction: 0.1, seed: 7,
+  }, 6000, true);
+  const m = world.metrics();
+  check('count conserved', world.vehicles.length === Math.round(15 * 4) * 3,
+        `n=${world.vehicles.length}`);
+  check('collision-free at moderate density', m.stats.collisions + m.stats.sideswipes === 0,
+        `rear=${m.stats.collisions} side=${m.stats.sideswipes}`);
+  check('lane changes still occur', m.stats.laneChanges > 0,
+        `changes=${m.stats.laneChanges}`);
+  console.log(`      meanV=${(m.meanV * 2.23694).toFixed(1)} mph (ideal T6 comparison ≈ 51)`);
 }
 
 // --- T4: renderer draws without exceptions against a recording stub ctx -----------------

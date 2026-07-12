@@ -21,6 +21,11 @@ var DriverProfile = class DriverProfile {
     this.bSafe = spec.bSafe;                    // decel this driver will impose on others
     this.exitPrep = spec.exitPrep * (variability > 0 ? (0.8 + 0.4 * rng()) : 1);
     this.truck = spec.truck;
+    // human control loop (v0.3) — ideal controller = (dt, 0, 0, large)
+    this.tReact   = g(spec.tReact   || [0.05, 0], 0.05, 2.0);
+    this.percErr  = g(spec.percErr  || [0, 0],    0,    0.30);
+    this.motorErr = g(spec.motorErr || [0, 0],    0,    0.08);
+    this.laneTol  = g(spec.laneTol  || [1.5, 0],  0.05, 1.50);
   }
 
   // desired speed tracks the live speed-limit slider
@@ -44,6 +49,12 @@ var Vehicle = class Vehicle {
     this.onRamp = null;       // the onramp object while still on the acceleration lane
     this.done = false;        // flagged when the vehicle takes its exit
 
+    // --- intermittent-control state (v0.3): commands computed at decision points,
+    //     held open-loop in between ---
+    this.heldAcc = 0;
+    this.heldDelta = 0;
+    this.nextDecision = bornAt;   // decide immediately on entry; world staggers seeds
+
     // --- bicycle-body state (unused by the 'lane' body) ---
     this.y = (lane + 0.5) * PARAMETERS.laneWidth;  // lateral position, 0 = left road edge
     this.psi = 0;             // heading relative to the road axis (rad)
@@ -60,14 +71,24 @@ var Vehicle = class Vehicle {
 
   // Steering cascade (highway-env architecture): lateral-position P-control produces a
   // commanded lateral speed, converted to a desired heading, tracked by a heading
-  // P-control that yields a steering angle for the kinematic bicycle. All the "car-ness"
-  // (no sideways translation, curvature-limited paths) comes from this + the kinematics.
-  steerToward(yTarget) {
+  // P-control that yields a steering angle for the kinematic bicycle.
+  //
+  // `horizon` (v0.3) is the driver's own hold time: the commanded arc is planned to
+  // complete when the NEXT decision arrives. Held δ integrates ψ linearly, so heading
+  // horizon = hold time is dead-beat — an instant-gain command held open-loop
+  // overshoots every interval and the driver oscillates forever (T8 caught it). At the
+  // ideal point (horizon = dt) this collapses to the classic constants.
+  steerToward(yTarget, horizon) {
     const S = PARAMETERS.steering;
     const vSafe = Math.max(this.v, 1);
-    const vLat = clamp((yTarget - this.y) / S.tauLat, -S.maxLatSpeed, S.maxLatSpeed);
+    // lateral horizon 4× the hold: one constant δ can't zero position error AND
+    // heading in a single interval (one control, two states), so aggressive position
+    // gains under held commands limit-cycle across the lane — approach gently instead
+    const hLat = Math.max(S.tauLat, 4 * (horizon || 0));
+    const hHead = Math.max(S.tauHeading, horizon || 0);
+    const vLat = clamp((yTarget - this.y) / hLat, -S.maxLatSpeed, S.maxLatSpeed);
     const psiDes = Math.asin(clamp(vLat / vSafe, -0.5, 0.5));
-    const psiDot = (psiDes - this.psi) / S.tauHeading;
+    const psiDot = (psiDes - this.psi) / hHead;
     this.delta = clamp(Math.atan(this.wheelbase * psiDot / vSafe), -S.maxSteer, S.maxSteer);
     return this.delta;
   }

@@ -92,6 +92,29 @@ var World = class World {
     return d < b.len + 0.5 || this.L - d < a.len + 0.5;
   }
 
+  // Noisy perception at a decision point: gap error percErr, closing-speed error 2×
+  // (humans read looming, not speed). Errors are fresh each decision — the driver acts
+  // correctly on a slightly wrong world.
+  perceive(veh, gap, vLead) {
+    const e = veh.p.percErr;
+    if (!e || gap == null) return { gap, vLead };
+    const gapP = Math.max(gap * (1 + gaussFrom(this.rng, 0, e)), 0.1);
+    const closingP = (veh.v - vLead) * (1 + gaussFrom(this.rng, 0, 2 * e));
+    return { gap: gapP, vLead: veh.v - closingP };
+  }
+
+  // schedule the next decision (±10% jitter so drivers don't phase-lock)
+  scheduleDecision(veh) {
+    veh.nextDecision = this.time + veh.p.tReact * (0.9 + 0.2 * this.rng());
+  }
+
+  // motor noise on the pedal: σ = motorErr × 20 (≈0.3 m/s² at defaults)
+  pedal(veh, accCmd) {
+    return veh.p.motorErr
+      ? accCmd + gaussFrom(this.rng, 0, veh.p.motorErr * 20)
+      : accCmd;
+  }
+
   // IDM equilibrium speed for a profile at fixed gap (Δv = 0) — used for seeding and by
   // the tests as the analytic reference: solves 1 - (v/v0)^δ - ((s0+vT)/s)^2 = 0
   equilibriumSpeed(prof, gapM) {
@@ -140,6 +163,7 @@ var World = class World {
           : lead.x - lead.len - arr[i].x;
         arr[i].v = Math.min(arr[i].p.desiredSpeed(),
                             this.equilibriumSpeed(arr[i].p, Math.max(gap, 0.5)));
+        arr[i].nextDecision = this.rng() * arr[i].p.tReact;   // stagger decision phases
       }
     }
   }
@@ -216,7 +240,10 @@ var World = class World {
   laneChangePass(dt) {
     const P = PARAMETERS;
     for (const veh of this.vehicles) {
+      // decision points (v0.3): flag consumed here and by accelPass, rescheduled there
+      veh._decide = this.time >= veh.nextDecision;
       if (veh.cooldown > 0) { veh.cooldown -= dt; continue; }
+      if (!veh._decide) continue;
 
       // exit urgency: 0 far from the exit → 1 at the gore
       let urgency = 0, planningLeftBlock = false;
@@ -304,17 +331,32 @@ var World = class World {
   }
 
   accelPass() {
+    const P = PARAMETERS;
     for (const arr of this.lanes) {
       for (const veh of arr) {
         const ld = this.leaderOf(veh);
-        veh.acc = veh.idmAcc(ld ? this.gap(veh, ld) : null, ld ? ld.v : 0);
-        // exit-bound driver stuck left near the gore: ease off to find a gap — but NEVER
-        // park on a live lane (a stopped car can't merge into flowing traffic and plugs
-        // its lane; if the gap never comes, the realistic outcome is missing the exit)
-        if (veh.destExit != null && veh.lane < this.laneCount - 1) {
-          const d = this.distAhead(veh.x, this.exits[veh.destExit].x);
-          const urgency = clamp(1 - d / veh.p.exitPrep, 0, 1);
-          if (urgency > 0.7 && veh.v > 8) veh.acc = Math.min(veh.acc, -0.6);
+        if (veh._decide) {
+          const sense = this.perceive(veh, ld ? this.gap(veh, ld) : null, ld ? ld.v : 0);
+          let cmd = veh.idmAcc(sense.gap, sense.vLead);
+          // exit-bound driver stuck left near the gore: ease off to find a gap — but
+          // NEVER park on a live lane (the realistic failure is missing the exit)
+          if (veh.destExit != null && veh.lane < this.laneCount - 1) {
+            const d = this.distAhead(veh.x, this.exits[veh.destExit].x);
+            const urgency = clamp(1 - d / veh.p.exitPrep, 0, 1);
+            if (urgency > 0.7 && veh.v > 8) cmd = Math.min(cmd, -0.6);
+          }
+          veh.heldAcc = this.pedal(veh, cmd);
+          this.scheduleDecision(veh);
+        }
+        veh.acc = veh.heldAcc;
+        // emergency reflex (every tick, beneath the slow loop): loom response
+        if (ld) {
+          const gap = this.gap(veh, ld), closing = veh.v - ld.v;
+          if (gap < 0.8 || (closing > 0 && closing * closing / (2 * Math.max(gap, 0.1)) > P.emergencyDecel)) {
+            veh.acc = -P.bMax;
+            veh.heldAcc = veh.acc;
+            veh.nextDecision = Math.min(veh.nextDecision, this.time + P.startleDelay);
+          }
         }
       }
     }
@@ -633,138 +675,201 @@ var World = class World {
     return null;
   }
 
+  // Satisficing lane keeping: inside the driver's comfort band (laneTol from each lane
+  // line) there is NO control action AT ALL — returns null, meaning hands off: steering
+  // command is zero + motor noise, heading persists and random-walks (straightening ψ
+  // would itself be a correction and would kill drift — Chris caught this). Only when
+  // position leaves the band does a correction engage, targeting just inside the edge.
+  // Large laneTol collapses the band to the center, recovering the ideal keeper.
+  keepTarget(veh) {
+    const W = PARAMETERS.laneWidth;
+    const lo = veh.lane * W + veh.p.laneTol + veh.width / 2;
+    const hi = (veh.lane + 1) * W - veh.p.laneTol - veh.width / 2;
+    if (lo >= hi) return this.laneCenter(veh.lane);
+    if (veh.y >= lo && veh.y <= hi) return null;    // inside the band: hands off
+    // correct INTO the band, restoring real margin — targeting just-inside-the-line
+    // parks drivers at the edges (T8 measured a bimodal pile-up at ±band edge)
+    const c = this.laneCenter(veh.lane);
+    return veh.y < lo ? lo + 0.4 * (c - lo) : hi - 0.4 * (hi - c);
+  }
+
   decisionPass2D(dt) {
     const P = PARAMETERS;
     const right = this.laneCount - 1;
     for (const veh of this.all) {
       if (veh.cooldown > 0) veh.cooldown -= dt;
+      const decide = this.time >= veh.nextDecision;
 
-      // IDM against whoever constrains my swept corridor (mine, if I'm mid-change)
+      // leader scan every tick — the reflex layer needs ground truth continuously
       const lead = this.scanAhead(veh, this.sweptBand(veh), 400);
-      veh.acc = veh.idmAcc(lead ? Math.max(this.gapX(veh, lead), 0.1) : null,
-                           lead ? lead.v : 0);
 
-      // ramp: mainline speed-matching, the merge maneuver, and the TAPER — past the
-      // acceleration lane the pavement's outer edge narrows over 40 m, geometrically
-      // squeezing any unmerged vehicle into the lane. Mainline followers see the
-      // encroaching band through ordinary IDM and yield: real-world "nudging" emerges
-      // from geometry, with no forcing bookkeeping. The wall sits where pavement ends.
-      if (veh.onRamp) {
-        const ramp = veh.onRamp;
-        const prog = Math.min(this.distAhead(ramp.x, veh.x), ramp.len + 40);
-        const accWall = veh.idmAcc(Math.max(ramp.len + 40 - 0.5 - prog, 0.1), 0);
-        veh.acc = Math.min(veh.acc, accWall);
-        if (prog < ramp.len * 0.7) {
-          const ml = this.scanAhead(veh, this.laneBand(right), 300);
-          const accMain = veh.idmAcc(ml ? Math.max(this.gapX(veh, ml), 0.1) : null,
-                                     ml ? ml.v : 0);
-          veh.acc = Math.min(Math.max(accWall, accMain),
-                             lead ? veh.idmAcc(Math.max(this.gapX(veh, lead), 0.1), lead.v)
-                                  : accMain);
-        }
-        if (!veh.changing) {
-          if (veh.cooldown <= 0) {
-            const bSafeM = 4 + clamp(prog / ramp.len, 0, 1) * 4;
-            this.mobil2D(veh, right, 0, bSafeM, true);
+      if (decide) {
+        // --- decision layer: perceive (noisily), command (imperfectly), hold ---
+        const sense = this.perceive(veh, lead ? Math.max(this.gapX(veh, lead), 0.1) : null,
+                                    lead ? lead.v : 0);
+        let cmd = veh.idmAcc(sense.gap, sense.vLead);
+
+        if (veh.onRamp) {
+          const ramp = veh.onRamp;
+          const prog = Math.min(this.distAhead(ramp.x, veh.x), ramp.len + 40);
+          const accWall = veh.idmAcc(Math.max(ramp.len + 40 - 0.5 - prog, 0.1), 0);
+          cmd = Math.min(cmd, accWall);
+          if (prog < ramp.len * 0.7) {
+            const ml = this.scanAhead(veh, this.laneBand(right), 300);
+            const accMain = veh.idmAcc(ml ? Math.max(this.gapX(veh, ml), 0.1) : null,
+                                       ml ? ml.v : 0);
+            cmd = Math.min(Math.max(accWall, accMain),
+                           lead ? veh.idmAcc(Math.max(this.gapX(veh, lead), 0.1), lead.v)
+                                : accMain);
           }
-        } else {
-          // signals expire: a merge that hasn't executed in 10 s releases its claim —
-          // an unexpiring claim deadlocks the closed loop (the claim stops a follower,
-          // the jam wraps the ring, the claimer's own leader freezes, cycle complete)
-          if (this.time - veh.changeStart > 10) {
+          if (!veh.changing) {
+            if (veh.cooldown <= 0) {
+              const bSafeM = 4 + clamp(prog / ramp.len, 0, 1) * 4;
+              this.mobil2D(veh, right, 0, bSafeM, true);
+            }
+          } else if (this.time - veh.changeStart > 10) {
+            // signals expire: an unexpiring claim deadlocks the closed loop
             veh.changing = false;
             veh.cooldown = 2;
             this.stats.aborts++;
-            continue;
+          } else {
+            // mid-merge monitor: committed like a mandatory change — bail only near
+            // the physical braking limit, and only while still mostly on the ramp
+            const nf = this.scanBehind(veh, this.laneBand(right), 200);
+            const stillOnRamp = veh.y + veh.width / 2 > this.roadWidth() + 0.1;
+            if (nf && stillOnRamp &&
+                nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v) < -(P.bMax - 0.5)) {
+              veh.changing = false;
+              veh.cooldown = 1.5;
+              this.stats.aborts++;
+            }
           }
-          // mid-merge monitor: if the lane-band follower is being squeezed and we're
-          // still mostly on the ramp band, bail back to the ramp (real merge behavior)
-          // committed like a mandatory change: bail only near the physical braking limit
-          // (a softer threshold churned accept→abort→retry and starved the ramp)
-          const nf = this.scanBehind(veh, this.laneBand(right), 200);
-          const stillOnRamp = veh.y + veh.width / 2 > this.roadWidth() + 0.1;
-          if (nf && stillOnRamp &&
-              nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v) < -(P.bMax - 0.5)) {
-            veh.changing = false;   // steering target reverts to the ramp center
-            veh.cooldown = 1.5;     // hysteresis: no instant re-accept (abort thrash)
-            this.stats.aborts++;
+        } else {
+          // exit urgency (identical brain to the lane body)
+          let urgency = 0, planningLeftBlock = false;
+          if (veh.destExit != null) {
+            const d = this.distAhead(veh.x, this.exits[veh.destExit].x);
+            urgency = clamp(1 - d / veh.p.exitPrep, 0, 1);
+            const lanesToCross = right - veh.lane;
+            planningLeftBlock = d < veh.p.exitPrep + 600 * lanesToCross + 400;
+            if (!veh.changing && veh.lane < right && urgency > 0.7 && veh.v > 8) {
+              cmd = Math.min(cmd, -0.6);   // gap-seek, floored — never park hunting
+            }
+          }
+
+          if (veh.changing) {
+            if (this.time - veh.changeStart > 10) {
+              veh.changing = false;
+              veh.targetLane = this.laneOf(veh);
+              veh.lane = veh.targetLane;
+              veh.cooldown = 2;
+              this.stats.aborts++;
+            } else {
+              const abortThresh = veh.mandatory
+                ? P.bMax
+                : (veh.acceptedBSafe || veh.p.bSafe) + P.steering.abortBoost;
+              const nf = this.scanBehind(veh, this.laneBand(veh.targetLane), 200);
+              const progLat = Math.abs(veh.y - this.laneCenter(veh.startLane)) / P.laneWidth;
+              if (nf && progLat < 0.4 && veh.targetLane !== veh.startLane &&
+                  nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v) < -abortThresh) {
+                veh.targetLane = veh.startLane;
+                veh.cooldown = 1.5;
+                this.stats.aborts++;
+              }
+            }
+          } else if (veh.cooldown <= 0) {
+            const lane = veh.lane;
+            let done = false;
+            if (urgency > 0 && lane < right) {
+              const relax = veh.p.bSafe + urgency * (P.bMax - veh.p.bSafe) * 0.6;
+              if (this.mobil2D(veh, lane + 1, urgency * P.mandatoryBoost + P.keepRightBias,
+                               relax, urgency > 0.6)) {
+                veh.mandatory = true; done = true;
+              }
+            }
+            if (!done && urgency <= 0.3) {
+              let courtesy = 0;
+              if (lane === right && this.laneCount > 1) {
+                for (const ramp of this.onramps) {
+                  if (!ramp.count2D) continue;
+                  const d = this.distAhead(veh.x, (ramp.x + ramp.len) % this.L);
+                  if (d < ramp.len + 250) { courtesy = 1.2; break; }
+                }
+              }
+              if (!courtesy && lane < right &&
+                  this.mobil2D(veh, lane + 1, P.keepRightBias, veh.p.bSafe, false)) {
+                veh.mandatory = false; done = true;
+              }
+              const leftBanned = (veh.p.truck && lane === 1 && this.laneCount >= 3)
+                               || planningLeftBlock;
+              if (!done && lane > 0 && !leftBanned &&
+                  this.mobil2D(veh, lane - 1, courtesy - P.keepRightBias * (courtesy ? 0 : 1),
+                               veh.p.bSafe, false)) {
+                veh.mandatory = false;
+              }
+            }
           }
         }
-        continue;
-      }
 
-      // exit urgency (identical brain to the lane body)
-      let urgency = 0, planningLeftBlock = false;
-      if (veh.destExit != null) {
-        const d = this.distAhead(veh.x, this.exits[veh.destExit].x);
-        urgency = clamp(1 - d / veh.p.exitPrep, 0, 1);
-        const lanesToCross = right - this.laneOf(veh);
-        planningLeftBlock = d < veh.p.exitPrep + 600 * lanesToCross + 400;
-        // gap-seek braking only while stuck, never mid-maneuver, and NEVER below a
-        // rolling floor — parking on a live lane deadlocks (a stopped car can't merge
-        // into flowing traffic; the realistic failure is missing the exit)
-        if (!veh.changing && this.laneOf(veh) < right && urgency > 0.7 && veh.v > 8) {
-          veh.acc = Math.min(veh.acc, -0.6);
+        // --- steering intent: maneuver → target center; ramp → taper line; keeping →
+        //     comfort band (no correction inside it). Shoulder check gates lateral. ---
+        let yT;
+        if (veh.changing) yT = this.laneCenter(veh.targetLane);
+        else if (veh.onRamp) {
+          const prog = this.distAhead(veh.onRamp.x, veh.x);
+          const outer = this.roadWidth() + P.laneWidth *
+            (prog <= veh.onRamp.len ? 1 : Math.max(0, 1 - (prog - veh.onRamp.len) / 35));
+          yT = Math.min(this.rampCenter(), outer - veh.width / 2 - 0.3);
+        } else {
+          yT = this.keepTarget(veh);   // null = hands off inside the comfort band
+          // hands off position, not blind to heading: at highway speed even ~0.5° of
+          // misalignment is 0.3 m/s of visible drift — straightened when noticed,
+          // even while lane position feels fine (without this, heading random-walks
+          // and drivers ping-pong edge to edge; T8 caught it)
+          if (yT == null && Math.abs(veh.psi) > 0.008) yT = veh.y;
         }
+        if (yT != null && Math.abs(yT - veh.y) > 0.05) {
+          const blocker = this.alongsideBlocker(veh, yT);
+          if (blocker) {
+            yT = veh.y;
+            if (veh.v > 0.3) cmd = Math.min(cmd, -0.5);
+          }
+        }
+        veh.heldDelta = (yT != null ? veh.steerToward(yT, veh.p.tReact) : (veh.delta = 0))
+          + (veh.p.motorErr ? gaussFrom(this.rng, 0, veh.p.motorErr) : 0);
+        veh.heldAcc = this.pedal(veh, cmd);
+        this.scheduleDecision(veh);
       }
+      veh.acc = veh.heldAcc;
 
-      if (veh.changing) {
-        // signals expire (see ramp branch): stuck changers release their claim
-        if (this.time - veh.changeStart > 10) {
-          veh.changing = false;
-          veh.targetLane = this.laneOf(veh);   // settle into whichever lane holds the body
-          veh.cooldown = 2;
-          this.stats.aborts++;
-          continue;
-        }
-        // abort: the target-lane follower is being squeezed and we're still mostly home.
-        // A MANDATORY (exit-forced) changer is committed — it bails only if the follower
-        // would need physically impossible braking; polite thresholds caused an
-        // accept-abort wobble loop at every gore that acted as a rolling bottleneck.
-        const abortThresh = veh.mandatory
-          ? P.bMax
-          : (veh.acceptedBSafe || veh.p.bSafe) + P.steering.abortBoost;
-        const nf = this.scanBehind(veh, this.laneBand(veh.targetLane), 200);
-        const progLat = Math.abs(veh.y - this.laneCenter(veh.startLane))
-                      / PARAMETERS.laneWidth;
-        if (nf && progLat < 0.4 && veh.targetLane !== veh.startLane &&
-            nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v) < -abortThresh) {
-          veh.targetLane = veh.startLane;
-          veh.cooldown = 1.5;
-          this.stats.aborts++;
-        }
-        continue;
-      }
-      if (veh.cooldown > 0) continue;
-
-      const lane = this.laneOf(veh);
-      if (urgency > 0 && lane < right) {
-        const relax = veh.p.bSafe + urgency * (P.bMax - veh.p.bSafe) * 0.6;
-        if (this.mobil2D(veh, lane + 1, urgency * P.mandatoryBoost + P.keepRightBias,
-                         relax, urgency > 0.6)) {
-          veh.mandatory = true;
-          continue;
+      // --- reflex layer, every tick, beneath the slow loop ---
+      // longitudinal loom response (leader, and the pavement end for ramp vehicles)
+      let panic = false;
+      if (lead) {
+        const gap = this.gapX(veh, lead), closing = veh.v - lead.v;
+        if (gap < 0.8 ||
+            (closing > 0 && closing * closing / (2 * Math.max(gap, 0.1)) > P.emergencyDecel)) {
+          panic = true;
         }
       }
-      if (urgency > 0.3) continue;
-
-      let courtesy = 0;
-      if (lane === right && this.laneCount > 1) {
-        for (const ramp of this.onramps) {
-          if (!ramp.count2D) continue;
-          const d = this.distAhead(veh.x, (ramp.x + ramp.len) % this.L);
-          if (d < ramp.len + 250) { courtesy = 1.2; break; }
+      if (!panic && veh.onRamp) {
+        const gapWall = veh.onRamp.len + 40 - 0.5
+                      - Math.min(this.distAhead(veh.onRamp.x, veh.x), veh.onRamp.len + 40);
+        if (veh.v * veh.v / (2 * Math.max(gapWall, 0.1)) > P.emergencyDecel) panic = true;
+      }
+      if (panic) {
+        veh.acc = -P.bMax;
+        veh.heldAcc = veh.acc;
+        veh.nextDecision = Math.min(veh.nextDecision, this.time + P.startleDelay);
+      }
+      // lateral reflex (peripheral vision is fast): drifting toward a body alongside →
+      // straighten now, drop back to break lockstep
+      if (Math.abs(veh.psi) > 0.02) {
+        const blocker = this.alongsideBlocker(veh, veh.y + Math.sign(veh.psi) * 0.8);
+        if (blocker) {
+          veh.heldDelta = veh.steerToward(veh.y, veh.p.tReact);   // reflex, noiseless
+          if (veh.v > 0.3) veh.acc = Math.min(veh.acc, -0.5);
         }
-      }
-      if (!courtesy && lane < right &&
-          this.mobil2D(veh, lane + 1, P.keepRightBias, veh.p.bSafe, false)) {
-        veh.mandatory = false; continue;
-      }
-      const leftBanned = (veh.p.truck && lane === 1 && this.laneCount >= 3) || planningLeftBlock;
-      if (lane > 0 && !leftBanned &&
-          this.mobil2D(veh, lane - 1, courtesy - P.keepRightBias * (courtesy ? 0 : 1),
-                       veh.p.bSafe, false)) {
-        veh.mandatory = false;
       }
     }
   }
@@ -774,26 +879,9 @@ var World = class World {
     const right = this.laneCount - 1;
     let removed = false;
     for (const veh of this.all) {
-      // steering target: mid-maneuver → target lane center; on-ramp → ramp center,
-      // bending inward along the taper so steering doesn't fight the pavement edge
-      let yTarget;
-      if (veh.changing) yTarget = this.laneCenter(veh.targetLane);
-      else if (veh.onRamp) {
-        const prog = this.distAhead(veh.onRamp.x, veh.x);
-        const outer = this.roadWidth() + P.laneWidth *
-          (prog <= veh.onRamp.len ? 1 : Math.max(0, 1 - (prog - veh.onRamp.len) / 35));
-        yTarget = Math.min(this.rampCenter(), outer - veh.width / 2 - 0.3);
-      } else yTarget = this.laneCenter(this.laneOf(veh));
-      // shoulder check: hold lateral motion while a body is alongside in the way, and
-      // drop back behind it to break lockstep (the zipper)
-      if (Math.abs(yTarget - veh.y) > 0.05) {
-        const blocker = this.alongsideBlocker(veh, yTarget);
-        if (blocker) {
-          yTarget = veh.y;
-          if (veh.v > 0.3) veh.acc = Math.min(veh.acc, -0.5);
-        }
-      }
-      veh.steerToward(yTarget);
+      // execute the HELD steering command (decisions and reflexes set it; between
+      // decisions the car runs open-loop — that's the intermittent controller)
+      veh.delta = clamp(veh.heldDelta, -P.steering.maxSteer, P.steering.maxSteer);
 
       const vNew = Math.max(0, veh.v + veh.acc * dt);
       const adv = (veh.v + vNew) / 2 * dt;
@@ -865,9 +953,10 @@ var World = class World {
         }
       }
 
-      // maneuver completion
-      if (veh.changing && Math.abs(veh.y - this.laneCenter(veh.targetLane)) < 0.15 &&
-          Math.abs(veh.psi) < 0.03) {
+      // maneuver completion (tolerances sized for motor noise: held steering error
+      // jitters ψ by ~0.05 at realistic settings, and drivers settle off-center)
+      if (veh.changing && Math.abs(veh.y - this.laneCenter(veh.targetLane)) < 0.35 &&
+          Math.abs(veh.psi) < 0.1) {
         veh.changing = false;
         veh.lane = veh.targetLane;
         veh.cooldown = P.laneChangeCooldown * (veh.mandatory ? 0.5 : 1);
