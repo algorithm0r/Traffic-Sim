@@ -566,7 +566,11 @@ var World = class World {
       const o = this.all[(veh.allIdx + k) % n];
       const d = this.distAhead(veh.x, o.x);
       if (d > maxDist || d - 20 > bestGap) break;   // no farther front hides a nearer rear
-      let hit = this.bandsOverlap(o.band(), band, 0.35);
+      // 0.35 m detection margin for traffic at speed; but a CREEPING driver may inch
+      // past a stopped encroacher with tight-but-real clearance (the wall-straddler
+      // deadlock: a frozen half-merged car pinned its neighbor via the margin forever)
+      const m = (veh.v < 3 && o.v < 1) ? 0.08 : 0.35;
+      let hit = this.bandsOverlap(o.band(), band, m);
       if (!hit && o.changing) {
         // a CLAIM binds me only if yielding is comfortable and I'm in signal-reading
         // range — a stopped merger's signal must not halt fast traffic 300 m back
@@ -971,10 +975,15 @@ var World = class World {
         }
         if (prog >= ramp.len + 40 - 0.5 && prog < ramp.len + 90) {
           veh.x = (ramp.x + ramp.len + 40 - 0.5) % this.L;
-          if (veh.y + veh.width / 2 > this.roadWidth()) veh.v = 0;
+          if (veh.y + veh.width / 2 > this.roadWidth()) {
+            // pavement ends, but it isn't a cliff: a straddler whose CENTER is on the
+            // road may roll at walking pace along the gore while the squeeze finishes
+            // (hard v=0 froze half-merged cars "both on and off the freeway" forever)
+            veh.v = Math.min(veh.v, veh.y < this.roadWidth() ? 0.8 : 0);
+          }
         }
-        if (veh.y + veh.width / 2 <= this.roadWidth() + 0.05) {
-          veh.onRamp = null;
+        if (veh.y + veh.width / 2 <= this.roadWidth() + 0.2) {
+          veh.onRamp = null;      // merged enough: ≤0.2 m overhang finishes on the road
           this.stats.merges++;
         }
       }
