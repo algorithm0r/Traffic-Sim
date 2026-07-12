@@ -1,35 +1,39 @@
 # Traffic Sim — STATUS
 *One screen. The current pulse. Overwritten, never appended — for history read DEVLOG.*
 
-**Updated:** 2026-07-10 (session close) — refreshed every session close; may carry unverified claims
+**Updated:** 2026-07-11 (session close) — refreshed every session close; may carry unverified claims
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-DEVPLAN Stage 5 `[ TESTING ]` (browser visual, Chris's eyes) / Stage 7 `[ PLANNED ]` (calibration)
+DEVPLAN Stage 7 `[ DONE ]` (bicycle body) / Stage 5 `[ TESTING ]` (browser visual, both bodies) /
+next: "our model" — the enriched driver against both controls
 
 ## State
-- IDM/MOBIL freeway prototype complete: loop road 1-4 lanes, interchanges (onramps w/
-  Poisson demand + accel-lane merging, destination exits), 4 driver archetypes,
-  stacked-leg renderer, live charts — smoke PASS + VALIDATION PASS @ 2a3838e (2026-07-10)
-- Browser view UNVERIFIED (headless stub-render only); DB write path UNVERIFIED from this box
+- TWO validated control models behind `bodyModel`: 'lane' (1D, discrete lanes) and
+  'bicycle' (continuous x/y/heading, steering cascade) — same IDM/MOBIL brain.
+  Smoke 7/7 PASS + VALIDATION PASS @ 7bc3df0 (2026-07-11)
+- Browser view UNVERIFIED for both bodies (headless stub-render only); DB path UNVERIFIED
 
-## Metrics
-- Analytic IDM equilibrium err 0.0%; fundamental diagram ≈1% of analytic (k=5..80)
-- Capacity 1836 veh/h/ln @ 30 veh/km; congested slope -18.4 km/h (analytic -18.1)
-- Stop-and-go wave speed 13 km/h upstream (empirical 15±5)
-- Onramp: breakdown Δ17 m/s, self-metering queue, discharge 74% of fleet capacity
-- Collisions: 0 in every smoke + validation scenario
+## Metrics (definitive run @ 7bc3df0)
+- Fundamental diagram ≈1% of analytic IDM (k=5..80); capacity 1836 veh/h/ln; congested
+  slope -18.0 km/h (analytic -18.1); stop-and-go waves 13 km/h upstream (empirical 15±5)
+- Onramp (1D): breakdown Δ18.9 m/s, discharge 74% of fleet capacity, self-metering queue
+- Embodiment head-to-head: ring flow deltas ≤1.7%; discharge 102%; lane changes 2.7 s;
+  merge rate 56% of 1D; bottleneck constraint relocates (1D mainline jam ↔ 2D ramp queue)
+- Collisions + sideswipes: 0 in every scenario, both bodies
 
 ## Branches
 - `main`
 
 ## Open
-- Stage 5 visual check (open `index.html`)
-- Merge-zone capacity drop 26% vs empirical 5-20% (Stage 7 calibration)
-- DB round-trip untested (runner written, Server/Mongo not exercised)
+- Stage 5 visual: open `index.html`, toggle Body lane/bicycle (Chris's eyes)
+- 2D merge rate 56% of 1D — real embodiment cost or residual over-conservatism? (Stage 8)
+- Merge-zone capacity drop 26% vs empirical 5-20% (1D, Stage 8)
+- DB round-trip untested; abort counter conflates maneuver-aborts with claim expiries
 
 ## Next action
-Chris opens `index.html` — then Stage 7 calibration or first experiments.
+Chris eyeballs both bodies in-browser; then design "our model" (enriched driver) against
+the two controls.
 
 ## Blockers
 - none

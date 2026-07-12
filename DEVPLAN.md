@@ -69,7 +69,22 @@ under the smoketest. ✓
 **Done when:** all validation experiments land inside the expected bands from the traffic-flow
 literature (see Design spec) and are recorded in the DEVLOG. ✓ VALIDATION PASS
 
-### Stage 7 — Calibration & realism refinements  [ PLANNED ]
+### Stage 7 — Kinematic bicycle body (embodiment control)  [ DONE ]
+- [x] `bodyModel: 'lane' | 'bicycle'` switch; the validated 1D model untouched as control
+- [x] Continuous (x, y, heading), steering cascade, maneuver lifecycle (commit/abort/expire)
+- [x] Interaction geometry: min-rear-gap leader election, claimed-slot signal reading
+      (comfort-bounded, 120 m), shoulder check + zipper drop-back, taper squeeze with
+      pull-forward deadlock breaking and mirror check
+- [x] Validation D: embodiment head-to-head (same brain, both bodies)
+**Done when:** both bodies pass the full suite and the head-to-head quantifies embodiment. ✓
+**Findings:** ring flows within 1.7% across bodies (k=12/25/40); lane changes take 2.7 s
+mean; aborts emerge as real behavior; bottleneck discharge 102% of lane body BUT the
+constraint relocates — the 1D body jams the mainline (Δ18 m/s), the 2D body meters the
+ramp (queue 245, mainline fluid). Merge rate is ~55% of 1D (202 vs 360) — geometric
+merging is expensive. Every 2D failure en route was a MISSING real-driver mechanism
+(see DEVLOG 2026-07-11); the fix catalog is itself a research result.
+
+### Stage 8 — Calibration & realism refinements  [ PLANNED ]
 - [ ] Merge-zone discharge: raise toward the empirical 80-95% of capacity (candidates:
       ramp-head patience/forced merge, gap anticipation, higher fleet `a`)
 - [ ] Open-boundary mode (independent upstream demand) for true capacity-discharge
