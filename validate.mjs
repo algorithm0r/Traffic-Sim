@@ -191,5 +191,73 @@ function ticks(world, n) {
   check('collision-free', m.stats.collisions === 0, `collisions=${m.stats.collisions}`);
 }
 
+// ---------- D: embodiment head-to-head — same brain, lane body vs bicycle body ----------
+// The deltas are FINDINGS (what does time-extended, geometric maneuvering do to the
+// macro observables?), so assertions here are sanity bounds, not match requirements.
+{
+  console.log('D   embodiment head-to-head (3-lane heterogeneous ring + merge bottleneck)');
+  const ring = (body, k) => {
+    fresh({
+      bodyModel: body, laneCount: 3, numInterchanges: 0, loopLength: 3000,
+      initialDensity: k, profileVariability: 1, truckFraction: 0.1, seed: 200 + k,
+      detectorFracs: [0.5],
+    });
+    const world = new ctx.World();
+    ticks(world, 6000);
+    world.readDetectors(1);
+    ticks(world, 6000);
+    const det = world.readDetectors(300);
+    return { q: det.flow, m: world.metrics() };
+  };
+  console.log('      3-lane ring flow (veh/h/ln):   k      lane   bicycle   Δ');
+  const ringRows = [];
+  for (const k of [12, 25, 40]) {
+    const a = ring('lane', k), b = ring('bicycle', k);
+    ringRows.push({ k, a, b });
+    console.log(`                                    ${String(k).padStart(2)}   ` +
+      `${a.q.toFixed(0).padStart(5)}   ${b.q.toFixed(0).padStart(5)}   ` +
+      `${(100 * (b.q - a.q) / a.q).toFixed(1)}%`);
+  }
+  const bottleneck = (body) => {
+    fresh({
+      bodyModel: body, laneCount: 2, numInterchanges: 1, loopLength: 8000,
+      initialDensity: 15, throughFraction: 1, demand: 1400, profileVariability: 1,
+      truckFraction: 0.08, seed: 21, detectorFracs: [2020 / 8000, 4280 / 8000],
+    });
+    const world = new ctx.World();
+    ticks(world, 12000);
+    for (const d of world.detectors) { d.count = 0; d.speedSum = 0; }
+    ticks(world, 12000);
+    const [du, dd] = world.detectors;
+    return {
+      upV: du.count ? du.speedSum / du.count : 0,
+      downV: dd.count ? dd.speedSum / dd.count : 0,
+      downQ: dd.count / 600 * 3600 / 2,
+      m: world.metrics(),
+    };
+  };
+  const bl = bottleneck('lane'), bb = bottleneck('bicycle');
+  console.log(`      bottleneck lane:    up ${bl.upV.toFixed(1)} down ${bl.downV.toFixed(1)} m/s` +
+    `  discharge ${bl.downQ.toFixed(0)} veh/h/ln  merges ${bl.m.stats.merges}  queue ${bl.m.queueTotal}`);
+  console.log(`      bottleneck bicycle: up ${bb.upV.toFixed(1)} down ${bb.downV.toFixed(1)} m/s` +
+    `  discharge ${bb.downQ.toFixed(0)} veh/h/ln  merges ${bb.m.stats.merges}  queue ${bb.m.queueTotal}` +
+    `  aborts ${bb.m.stats.aborts}  sideswipes ${bb.m.stats.sideswipes}`);
+  check('bicycle body collision-free across all D runs',
+        ringRows.every((r) => r.b.m.stats.collisions + r.b.m.stats.sideswipes === 0) &&
+        bb.m.stats.collisions + bb.m.stats.sideswipes === 0,
+        ringRows.map((r) => `k=${r.k}: rear=${r.b.m.stats.collisions} side=${r.b.m.stats.sideswipes}`)
+          .join('  ') + `  bottleneck: rear=${bb.m.stats.collisions} side=${bb.m.stats.sideswipes}`);
+  check('congested regime appears in both bodies (q(40) < q(25))',
+        ringRows[2].a.q < ringRows[1].a.q && ringRows[2].b.q < ringRows[1].b.q);
+  check('embodiment effect bounded (bicycle ring flow within 25% of lane)',
+        ringRows.every((r) => Math.abs(r.b.q - r.a.q) / r.a.q < 0.25),
+        ringRows.map((r) => `k=${r.k}: ${(100 * (r.b.q - r.a.q) / r.a.q).toFixed(1)}%`).join('  '));
+  check('bicycle bottleneck still breaks down upstream', bb.upV < bb.downV - 5,
+        `Δ=${(bb.downV - bb.upV).toFixed(1)} m/s`);
+  check('bicycle discharge within [50%, 110%] of lane discharge',
+        bb.downQ > 0.5 * bl.downQ && bb.downQ < 1.1 * bl.downQ,
+        `${bb.downQ.toFixed(0)} vs ${bl.downQ.toFixed(0)} veh/h/ln (${(100 * bb.downQ / bl.downQ).toFixed(0)}%)`);
+}
+
 console.log(failures === 0 ? 'VALIDATION PASS' : `VALIDATION FAIL (${failures} check(s))`);
 process.exit(failures === 0 ? 0 : 1);

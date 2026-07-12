@@ -87,19 +87,38 @@ var Observer = class Observer {
       ctx.fillText('EXIT ' + (exit.idx + 1), p0.px, p0.y + g.bandH + g.rampH + 9);
     }
 
-    // --- vehicles (visLane eases through changes and slides mergers in off the ramp) --
+    // --- vehicles ---------------------------------------------------------------------
+    // lane body: visLane eases through changes. bicycle body: true (y, heading) — the
+    // rotation angle is computed in PIXEL space because the lateral and longitudinal
+    // scales differ (laneH px/lane vs pxm px/m), otherwise headings look wildly wrong.
     const vmax = P.speedLimitMph * MPH2MS;
+    const bicycle = P.bodyModel === 'bicycle';
+    const latScale = g.laneH / P.laneWidth;
     const drawVeh = (veh) => {
       const p = this.posToXY(g, veh.x);
-      const y = p.y + (veh.visLane + 0.5) * g.laneH;
+      const y = p.y + (bicycle ? veh.y * latScale : (veh.visLane + 0.5) * g.laneH);
       const len = Math.max(2.5, veh.len * g.pxm);
       const h = veh.p.truck ? 7 : 6;
       ctx.fillStyle = P.colorMode === 'type'
         ? ({ aggressive: '#ff7b72', normal: '#7fd1ff', cautious: '#d2a8ff', truck: '#e3b341' })[veh.p.name]
         : hsl(130 * clamp(veh.v / vmax, 0, 1), 75, 55);
-      ctx.fillRect(p.px - len, y - h / 2, len, h);
+      if (bicycle) {
+        const ang = Math.atan2(Math.sin(veh.psi) * latScale, Math.cos(veh.psi) * g.pxm * 8);
+        ctx.save();
+        ctx.translate(p.px - len / 2, y);
+        ctx.rotate(ang);
+        ctx.fillRect(-len / 2, -h / 2, len, h);
+        if (veh.changing) {                       // turn signal toward the target lane
+          const side = w.laneCenter(veh.targetLane) < veh.y ? -1 : 1;
+          ctx.fillStyle = '#ffd23f';
+          ctx.fillRect(len / 2 - 2, side * (h / 2) - 1, 2, 2);
+        }
+        ctx.restore();
+      } else {
+        ctx.fillRect(p.px - len, y - h / 2, len, h);
+      }
     };
     for (const veh of w.vehicles) drawVeh(veh);
-    for (const ramp of w.onramps) for (const veh of ramp.vehicles) drawVeh(veh);
+    if (!bicycle) for (const ramp of w.onramps) for (const veh of ramp.vehicles) drawVeh(veh);
   }
 };

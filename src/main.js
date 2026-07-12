@@ -25,6 +25,13 @@ function toggleColor() {
   if (b) b.textContent = 'Color: ' + PARAMETERS.colorMode;
 }
 
+function toggleBody() {
+  PARAMETERS.bodyModel = PARAMETERS.bodyModel === 'lane' ? 'bicycle' : 'lane';
+  const b = document.getElementById('bodyBtn');
+  if (b) b.textContent = 'Body: ' + PARAMETERS.bodyModel;
+  reset();
+}
+
 window.onload = function () {
   const canvas = document.getElementById('gameWorld');
   gameEngine = new GameEngine();

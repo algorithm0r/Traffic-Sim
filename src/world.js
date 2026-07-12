@@ -111,7 +111,9 @@ var World = class World {
     const n = Math.round(kPerKmLane * this.L / 1000);
     if (n <= 0) return;
     const spacing = this.L / n;
+    const byLane = [];
     for (let lane = 0; lane < this.laneCount; lane++) {
+      const arr = [];
       for (let i = 0; i < n; i++) {
         let prof = this.sampleProfile();
         // trucks stay out of the leftmost lane on 3+ lane freeways
@@ -119,10 +121,25 @@ var World = class World {
           for (let tries = 0; tries < 10 && prof.truck; tries++) prof = this.sampleProfile();
         }
         const x = (i * spacing + this.rng() * spacing * 0.2) % this.L;
-        const v = Math.min(prof.desiredSpeed(),
-                           this.equilibriumSpeed(prof, spacing - prof.len));
         const dest = (this.rng() < PARAMETERS.throughFraction) ? null : this.sampleDest(x);
-        this.vehicles.push(new Vehicle(this.nextId++, x, lane, v, prof, dest, 0));
+        const veh = new Vehicle(this.nextId++, x, lane, 0, prof, dest, 0);
+        arr.push(veh);
+        this.vehicles.push(veh);
+      }
+      byLane.push(arr);
+    }
+    // seed speeds from the gap to the ACTUAL leader — a car seeded behind a truck at
+    // nominal spacing otherwise starts ~10 m/s too fast for its real 9 m gap and
+    // rear-ends it within a second (the k=40 "collisions" were this artifact)
+    for (const arr of byLane) {
+      arr.sort((a, b) => a.x - b.x);
+      for (let i = 0; i < arr.length; i++) {
+        const lead = arr[(i + 1) % arr.length];
+        const gap = (i === arr.length - 1)
+          ? lead.x + this.L - lead.len - arr[i].x
+          : lead.x - lead.len - arr[i].x;
+        arr[i].v = Math.min(arr[i].p.desiredSpeed(),
+                            this.equilibriumSpeed(arr[i].p, Math.max(gap, 0.5)));
       }
     }
   }
@@ -473,22 +490,53 @@ var World = class World {
     for (const veh of this.vehicles) if (veh.onRamp) veh.onRamp.count2D++;
   }
 
-  // nearest vehicle ahead of / behind `veh` whose body band overlaps `band`
+  // What I claim as mine while changing: my whole swept corridor (used as MY leader
+  // query — I must not ram anything along the path I'm about to sweep).
+  sweptBand(veh) {
+    const b = veh.band();
+    if (!veh.changing) return b;
+    const c = this.laneCenter(veh.targetLane);
+    return [Math.min(b[0], c - veh.width / 2), Math.max(b[1], c + veh.width / 2)];
+  }
+
+  // What OTHERS see of o: its body, plus — if it's mid-change — its claimed slot in
+  // the target lane (turn-signal reading; kills the merger-invisibility window).
+  // Deliberately NOT the corridor in between: making the corridor visible to everyone
+  // had origin-lane followers braking for vehicles that were leaving, which interlocked
+  // into full-loop gridlock (validation D froze at 0 m/s). The body clears the origin
+  // lane naturally as it departs; the claim covers the destination.
+  footprintOverlaps(o, band, margin) {
+    if (this.bandsOverlap(o.band(), band, margin)) return true;
+    if (!o.changing) return false;
+    const c = this.laneCenter(o.targetLane);
+    return this.bandsOverlap([c - o.width / 2, c + o.width / 2], band, margin);
+  }
+
+  // nearest vehicle ahead of `veh` (by REAR gap, not front position — fronts are what
+  // the array sorts on, and a short car's nearer front can mask a long truck whose tail
+  // is on your bumper; T7's one rear-end was exactly that) whose footprint overlaps
+  // `band`. The 0.35 m margin keeps a changer sliding out of my lane registered as my
+  // leader until its corner has genuinely cleared.
   scanAhead(veh, band, maxDist) {
     const n = this.all.length;
+    let best = null, bestGap = Infinity;
     for (let k = 1; k < n; k++) {
       const o = this.all[(veh.allIdx + k) % n];
-      if (this.distAhead(veh.x, o.x) > maxDist) return null;
-      if (this.bandsOverlap(o.band(), band, 0.15)) return o;
+      const d = this.distAhead(veh.x, o.x);
+      if (d > maxDist || d - 20 > bestGap) break;   // no farther front hides a nearer rear
+      if (this.footprintOverlaps(o, band, 0.35)) {
+        const g = d - o.len;
+        if (g < bestGap) { bestGap = g; best = o; }
+      }
     }
-    return null;
+    return best;
   }
   scanBehind(veh, band, maxDist) {
     const n = this.all.length;
     for (let k = 1; k < n; k++) {
       const o = this.all[(veh.allIdx - k + n) % n];
       if (this.distAhead(o.x, veh.x) > maxDist) return null;
-      if (this.bandsOverlap(o.band(), band, 0.15)) return o;
+      if (this.footprintOverlaps(o, band, 0.35)) return o;
     }
     return null;
   }
@@ -551,22 +599,50 @@ var World = class World {
     return true;
   }
 
+  // The over-the-shoulder glance: who occupies the strip I'm about to steer through,
+  // alongside my own body? scanAhead/scanBehind order vehicles by front position, so a
+  // body ALONGSIDE (x-extents overlapping) is invisible to both — the merge-zone crawl
+  // produced 93 sideswipes from exactly this blind spot (validation D). Returns the
+  // blocker (or null) so the caller can drop back behind it: holding lateral alone
+  // re-gridlocked the loop, because blocked vehicles creep in LOCKSTEP with their
+  // blockers and the strip never clears. Falling back is the zipper's other half.
+  alongsideBlocker(veh, targetY) {
+    const dir = Math.sign(targetY - veh.y);
+    if (!dir) return null;
+    const strip = dir > 0
+      ? [veh.y - veh.width / 2, veh.y + veh.width / 2 + 1.2]
+      : [veh.y - veh.width / 2 - 1.2, veh.y + veh.width / 2];
+    const n = this.all.length;
+    for (let k = 1; k <= 6 && k < n; k++) {
+      const cands = [this.all[(veh.allIdx + k) % n], this.all[(veh.allIdx - k + n) % n]];
+      for (const o of cands) {
+        if (o === veh || o.done) continue;
+        if (this.overlaps(veh, o) && this.bandsOverlap(o.band(), strip, 0)) return o;
+      }
+    }
+    return null;
+  }
+
   decisionPass2D(dt) {
     const P = PARAMETERS;
     const right = this.laneCount - 1;
     for (const veh of this.all) {
       if (veh.cooldown > 0) veh.cooldown -= dt;
 
-      // IDM against whoever geometrically constrains my band
-      const lead = this.scanAhead(veh, veh.band(), 400);
+      // IDM against whoever constrains my swept corridor (mine, if I'm mid-change)
+      const lead = this.scanAhead(veh, this.sweptBand(veh), 400);
       veh.acc = veh.idmAcc(lead ? Math.max(this.gapX(veh, lead), 0.1) : null,
                            lead ? lead.v : 0);
 
-      // ramp: end-wall + mainline speed-matching + the merge maneuver
+      // ramp: mainline speed-matching, the merge maneuver, and the TAPER — past the
+      // acceleration lane the pavement's outer edge narrows over 40 m, geometrically
+      // squeezing any unmerged vehicle into the lane. Mainline followers see the
+      // encroaching band through ordinary IDM and yield: real-world "nudging" emerges
+      // from geometry, with no forcing bookkeeping. The wall sits where pavement ends.
       if (veh.onRamp) {
         const ramp = veh.onRamp;
-        const prog = Math.min(this.distAhead(ramp.x, veh.x), ramp.len);
-        const accWall = veh.idmAcc(Math.max(ramp.len - 0.5 - prog, 0.1), 0);
+        const prog = Math.min(this.distAhead(ramp.x, veh.x), ramp.len + 40);
+        const accWall = veh.idmAcc(Math.max(ramp.len + 40 - 0.5 - prog, 0.1), 0);
         veh.acc = Math.min(veh.acc, accWall);
         if (prog < ramp.len * 0.7) {
           const ml = this.scanAhead(veh, this.laneBand(right), 300);
@@ -671,10 +747,25 @@ var World = class World {
     const right = this.laneCount - 1;
     let removed = false;
     for (const veh of this.all) {
-      // steering target: mid-maneuver → target lane center; on-ramp → ramp center
-      const yTarget = veh.changing ? this.laneCenter(veh.targetLane)
-                    : veh.onRamp ? this.rampCenter()
-                    : this.laneCenter(this.laneOf(veh));
+      // steering target: mid-maneuver → target lane center; on-ramp → ramp center,
+      // bending inward along the taper so steering doesn't fight the pavement edge
+      let yTarget;
+      if (veh.changing) yTarget = this.laneCenter(veh.targetLane);
+      else if (veh.onRamp) {
+        const prog = this.distAhead(veh.onRamp.x, veh.x);
+        const outer = this.roadWidth() + P.laneWidth *
+          (prog <= veh.onRamp.len ? 1 : Math.max(0, 1 - (prog - veh.onRamp.len) / 35));
+        yTarget = Math.min(this.rampCenter(), outer - veh.width / 2 - 0.3);
+      } else yTarget = this.laneCenter(this.laneOf(veh));
+      // shoulder check: hold lateral motion while a body is alongside in the way, and
+      // drop back behind it to break lockstep (the zipper)
+      if (Math.abs(yTarget - veh.y) > 0.05) {
+        const blocker = this.alongsideBlocker(veh, yTarget);
+        if (blocker) {
+          yTarget = veh.y;
+          if (veh.v > 0.3) veh.acc = Math.min(veh.acc, -0.5);
+        }
+      }
       veh.steerToward(yTarget);
 
       const vNew = Math.max(0, veh.v + veh.acc * dt);
@@ -685,19 +776,46 @@ var World = class World {
       veh.y += adv * Math.sin(veh.psi);
       veh.v = vNew;
 
-      // road edges (ramp band only exists along the ramp)
+      // road edges (ramp band only exists along the ramp; its taper is applied below)
       const hi = (veh.onRamp ? this.roadWidth() + P.laneWidth : this.roadWidth())
                - veh.width / 2 - 0.05;
       const lo = veh.width / 2 + 0.05;
       if (veh.y < lo) { veh.y = lo; veh.psi = Math.max(veh.psi, 0) * 0.5; }
       if (veh.y > hi) { veh.y = hi; veh.psi = Math.min(veh.psi, 0) * 0.5; }
 
-      // ramp bookkeeping: hard wall at the ramp end; merged = body fully on the road
+      // ramp bookkeeping: the taper squeezes the outer pavement edge to zero over the
+      // 40 m past the acceleration lane; the wall is where the pavement ends; merged =
+      // body fully on the road
       if (veh.onRamp) {
         const ramp = veh.onRamp;
         const prog = this.distAhead(ramp.x, veh.x);
-        if (prog >= ramp.len - 0.5 && prog < ramp.len + 50) {
-          veh.x = (ramp.x + ramp.len - 0.5) % this.L;
+        // squeeze completes at +35 m but the wall sits at +40: a driver who parks s0
+        // short of the wall is already fully on the road (an s0-length cork of unmerged
+        // pavement at the taper end froze the entire loop — the probe caught it)
+        const outer = this.roadWidth() + P.laneWidth *
+          (prog <= ramp.len ? 1 : Math.max(0, 1 - (prog - ramp.len) / 35));
+        const yMax = outer - veh.width / 2 - 0.05;
+        if (veh.y > yMax) {
+          // never squeeze into an occupied lane — pavement running out means STOP
+          let blocked = false;
+          const nAll = this.all.length;
+          for (let k = 1; k <= 6 && k < nAll; k++) {
+            for (const o of [this.all[(veh.allIdx + k) % nAll],
+                             this.all[(veh.allIdx - k + nAll) % nAll]]) {
+              if (o === veh || o.done) continue;
+              const dxF = this.distAhead(veh.x, o.x), dxB = this.distAhead(o.x, veh.x);
+              if (Math.min(dxF, dxB) > veh.len + o.len + 1) continue;
+              if (this.bandsOverlap(o.band(), [yMax - veh.width / 2, yMax + veh.width / 2], 0.1)) {
+                blocked = true; break;
+              }
+            }
+            if (blocked) break;
+          }
+          if (blocked) { veh.x = oldX; veh.v = 0; }
+          else { veh.y = yMax; veh.psi = Math.min(veh.psi, 0) * 0.5; }
+        }
+        if (prog >= ramp.len + 40 - 0.5 && prog < ramp.len + 90) {
+          veh.x = (ramp.x + ramp.len + 40 - 0.5) % this.L;
           if (veh.y + veh.width / 2 > this.roadWidth()) veh.v = 0;
         }
         if (veh.y + veh.width / 2 <= this.roadWidth() + 0.05) {
