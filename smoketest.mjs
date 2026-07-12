@@ -171,7 +171,9 @@ function run(overrides, ticks) {
         `rear=${s.collisions} side=${s.sideswipes}`);
   check('missed exits bounded', s.missedExits < 0.25 * (s.exited + 1),
         `missed=${s.missedExits} vs exited=${s.exited}`);
-  check('ramp queues bounded', m.queueTotal < 50, `queue=${m.queueTotal}`);
+  // <120: geometric merging is measurably costlier than the lane body's instant merge
+  // (validation D quantifies it) — the ramp queue is where that cost pools
+  check('ramp queues bounded', m.queueTotal < 120, `queue=${m.queueTotal}`);
   check('population bounded', m.count < 1200, `n=${m.count}`);
   console.log(`      meanV=${(m.meanV * 2.23694).toFixed(1)} mph  aborts=${s.aborts}` +
               `  travelTime=${(s.travelTimeSum / Math.max(s.travelTimeN, 1)).toFixed(0)} s avg`);

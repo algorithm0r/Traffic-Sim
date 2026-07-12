@@ -524,7 +524,17 @@ var World = class World {
       const o = this.all[(veh.allIdx + k) % n];
       const d = this.distAhead(veh.x, o.x);
       if (d > maxDist || d - 20 > bestGap) break;   // no farther front hides a nearer rear
-      if (this.footprintOverlaps(o, band, 0.35)) {
+      let hit = this.bandsOverlap(o.band(), band, 0.35);
+      if (!hit && o.changing) {
+        // a CLAIM binds me only if yielding is comfortable and I'm in signal-reading
+        // range — a stopped merger's signal must not halt fast traffic 300 m back
+        // (rotating claims built a permanent phantom wall that gridlocked the loop)
+        const c = this.laneCenter(o.targetLane);
+        if (d < 120 && this.bandsOverlap([c - o.width / 2, c + o.width / 2], band, 0.35)) {
+          hit = veh.idmAcc(Math.max(d - o.len, 0.1), o.v) > -2.0;
+        }
+      }
+      if (hit) {
         const g = d - o.len;
         if (g < bestGap) { bestGap = g; best = o; }
       }
@@ -658,6 +668,15 @@ var World = class World {
             this.mobil2D(veh, right, 0, bSafeM, true);
           }
         } else {
+          // signals expire: a merge that hasn't executed in 10 s releases its claim —
+          // an unexpiring claim deadlocks the closed loop (the claim stops a follower,
+          // the jam wraps the ring, the claimer's own leader freezes, cycle complete)
+          if (this.time - veh.changeStart > 10) {
+            veh.changing = false;
+            veh.cooldown = 2;
+            this.stats.aborts++;
+            continue;
+          }
           // mid-merge monitor: if the lane-band follower is being squeezed and we're
           // still mostly on the ramp band, bail back to the ramp (real merge behavior)
           // committed like a mandatory change: bail only near the physical braking limit
@@ -690,6 +709,14 @@ var World = class World {
       }
 
       if (veh.changing) {
+        // signals expire (see ramp branch): stuck changers release their claim
+        if (this.time - veh.changeStart > 10) {
+          veh.changing = false;
+          veh.targetLane = this.laneOf(veh);   // settle into whichever lane holds the body
+          veh.cooldown = 2;
+          this.stats.aborts++;
+          continue;
+        }
         // abort: the target-lane follower is being squeezed and we're still mostly home.
         // A MANDATORY (exit-forced) changer is committed — it bails only if the follower
         // would need physically impossible braking; polite thresholds caused an
@@ -796,8 +823,12 @@ var World = class World {
           (prog <= ramp.len ? 1 : Math.max(0, 1 - (prog - ramp.len) / 35));
         const yMax = outer - veh.width / 2 - 0.05;
         if (veh.y > yMax) {
-          // never squeeze into an occupied lane — pavement running out means STOP
-          let blocked = false;
+          // never squeeze into an occupied slot — but only a conflict AHEAD stops the
+          // car. For a body abreast or behind, pulling forward INCREASES separation,
+          // so hold the squeeze and keep rolling (freezing for a car behind produced a
+          // two-vehicle mutual wait that deadlocked the loop: the probe caught merger
+          // #242 stopped for #148 whose own "leader" was #242).
+          let blockAhead = false, holdY = false;
           const nAll = this.all.length;
           for (let k = 1; k <= 6 && k < nAll; k++) {
             for (const o of [this.all[(veh.allIdx + k) % nAll],
@@ -806,13 +837,23 @@ var World = class World {
               const dxF = this.distAhead(veh.x, o.x), dxB = this.distAhead(o.x, veh.x);
               if (Math.min(dxF, dxB) > veh.len + o.len + 1) continue;
               if (this.bandsOverlap(o.band(), [yMax - veh.width / 2, yMax + veh.width / 2], 0.1)) {
-                blocked = true; break;
+                if (dxF < dxB) blockAhead = true;   // their front is ahead of mine
+                else holdY = true;
               }
             }
-            if (blocked) break;
+            if (blockAhead) break;
           }
-          if (blocked) { veh.x = oldX; veh.v = 0; }
-          else { veh.y = yMax; veh.psi = Math.min(veh.psi, 0) * 0.5; }
+          // mirror check: don't descend in front of someone closing fast in the
+          // destination band (the taper squeeze is a lane change and owes the same
+          // courtesy — T7's last sideswipe was a merger dropping 0.2 m ahead of a
+          // +6.6 m/s approach)
+          if (!blockAhead && !holdY) {
+            const nf = this.scanBehind(veh, [yMax - veh.width / 2, yMax + veh.width / 2], 150);
+            if (nf && nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v) < -6) holdY = true;
+          }
+          if (blockAhead) { veh.x = oldX; veh.v = 0; }
+          else if (!holdY) { veh.y = yMax; veh.psi = Math.min(veh.psi, 0) * 0.5; }
+          // holdY: advance without squeezing further; the conflict clears as we pull away
         }
         if (prog >= ramp.len + 40 - 0.5 && prog < ramp.len + 90) {
           veh.x = (ramp.x + ramp.len + 40 - 0.5) % this.L;
