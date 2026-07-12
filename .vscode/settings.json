@@ -2,7 +2,7 @@
   // Metallic peacock — brushed gunmetal chrome so this window reads instantly
   // different from the Media Dashboard's teal. The peacock survives in the accents:
   // iridescent cyan-green borders, gold eye-spot badges, a purple sheen when debugging.
-  // peacock.color is the gunmetal base so a
+  // Mirror of sim/.vscode/settings.json. peacock.color is the gunmetal base so a
   // Peacock re-derive stays in the metallic family.
   "peacock.color": "#4f5d66",
   "workbench.colorCustomizations": {
