@@ -1,39 +1,36 @@
 # Traffic Sim — STATUS
 *One screen. The current pulse. Overwritten, never appended — for history read DEVLOG.*
 
-**Updated:** 2026-07-11 (session close) — refreshed every session close; may carry unverified claims
+**Updated:** 2026-07-11 (v0.3 close) — refreshed every session close; may carry unverified claims
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-DEVPLAN Stage 7 `[ DONE ]` (bicycle body) / Stage 5 `[ TESTING ]` (browser visual, both bodies) /
-next: "our model" — the enriched driver against both controls
+Stage 9 `[ DONE ]` (human control loop, v0.3) / Stage 8 `[ PLANNED ]` (D2 deadlock + calibration)
 
 ## State
-- TWO validated control models behind `bodyModel`: 'lane' (1D, discrete lanes) and
-  'bicycle' (continuous x/y/heading, steering cascade) — same IDM/MOBIL brain.
-  Smoke 7/7 PASS + VALIDATION PASS @ 7bc3df0 (2026-07-11)
-- Browser view UNVERIFIED for both bodies (headless stub-render only); DB path UNVERIFIED
+- THREE model layers: v0.1 lane body (1D control), v0.2 bicycle body (2D control), v0.3
+  human control loop (tReact / percErr / motorErr / laneTol + reflexes) — ideal point
+  recovers the controls; suites enforce it. Smoke 9/9 PASS @ HEAD (2026-07-11)
+- Lane wander EMERGES from mechanism: SD 0.33 m, max 0.72 m, in-lane, collision-free
+- Browser view UNVERIFIED (both bodies, wander); DB path UNVERIFIED
 
-## Metrics (definitive run @ 7bc3df0)
-- Fundamental diagram ≈1% of analytic IDM (k=5..80); capacity 1836 veh/h/ln; congested
-  slope -18.0 km/h (analytic -18.1); stop-and-go waves 13 km/h upstream (empirical 15±5)
-- Onramp (1D): breakdown Δ18.9 m/s, discharge 74% of fleet capacity, self-metering queue
-- Embodiment head-to-head: ring flow deltas ≤1.7%; discharge 102%; lane changes 2.7 s;
-  merge rate 56% of 1D; bottleneck constraint relocates (1D mainline jam ↔ 2D ramp queue)
-- Collisions + sideswipes: 0 in every scenario, both bodies
+## Metrics
+- Controls unchanged: FD ≈1% of analytic; capacity 1836; waves 13 km/h; ring embodiment
+  deltas ≤2.5%; bottleneck discharge 103% (creep rule resolved the frequent deadlocks)
+- Human loop: wander SD 0.33 m; realistic 3-lane traffic 55 mph collision-free;
+  lane-change rate ~2.8× ideal under wander
 
-## Branches
-- `main`
+## Branches / tags
+- `main`; tags v0.1 (1D), v0.2 (bicycle), v0.3 pending final validation line
 
 ## Open
-- Stage 5 visual: open `index.html`, toggle Body lane/bicycle (Chris's eyes)
-- 2D merge rate 56% of 1D — real embodiment cost or residual over-conservatism? (Stage 8)
-- Merge-zone capacity drop 26% vs empirical 5-20% (1D, Stage 8)
-- DB round-trip untested; abort counter conflates maneuver-aborts with claim expiries
+- KNOWN ISSUE: D2 over-capacity bottleneck (bicycle) deadlocks stochastically — 4th
+  mutual-wait geometry undiagnosed; discharge check report-only (DEVPLAN Stage 8)
+- Browser visual check (Body toggle; wander is visible at defaults)
+- First experiment ready: tReact sweep → FD / wave onset / crash rate
 
 ## Next action
-Chris eyeballs both bodies in-browser; then design "our model" (enriched driver) against
-the two controls.
+Fresh session: D2 deadlock instrumentation. Then the tReact sweep experiment.
 
 ## Blockers
 - none

@@ -3,6 +3,32 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-07-11 — v0.3: the human control loop (start of "our model")
+**Done:** drivers become intermittent, noisy, satisficing controllers. Four continuous
+per-driver parameters (tReact / percErr / motorErr / laneTol), ideal = a point in the
+space (IDEAL_CONTROL, applied by the suites — v0.1/v0.2 stay intact controls). Commands
+held open-loop between decisions; steering planned over the driver's own hold horizon;
+comfort-band lane keeping with hands-off inside (Chris caught that straightening heading
+in the band would kill drift — load-bearing correction); margin-restoring edge
+corrections; always-on emergency reflex + lateral reflex + anti-stalemate creep.
+Tags: v0.1 (1D control), v0.2 (bicycle control) created this session.
+**Changed:** params/agent/world, smoketest (T8/T9, IDEAL_CONTROL harness), validate
+(ideal-point controls; D2 discharge demoted to report — known issue).
+**State:** smoke 9/9 PASS @ HEAD. Lane wander EMERGES from mechanism: SD 0.33 m
+(empirical ~0.2-0.3), max 0.72 m, in-lane; realistic 3-lane traffic collision-free at
+55 mph on the reflex; lane changes ~2.8× ideal rate under wander. Calibration journey
+(each failure was physics): instant-gain commands held open-loop limit-cycle; one δ
+can't zero position+heading in one interval (gentle lateral horizon); hands-off isn't
+heading-blind (0.5° at 29 m/s = 0.3 m/s drift); motor noise lives at the TIRE (wheel
+jitter / ~15:1 steering ratio) — at milliradian scale corrections drown in their own
+noise and wander becomes perception-threshold-driven, matching the human-factors
+literature. KNOWN ISSUE: D2 over-capacity bottleneck (bicycle) deadlocks in some
+realizations — fourth mutual-wait geometry undiagnosed; creep rule resolves most;
+bounded creep-speed grazes (≤2) accepted at that config.
+**Next:** fresh session on the D2 deadlock (space-time instrumentation); then the first
+real experiment: sweep tReact across the fleet, measure fundamental diagram / wave
+onset / crash rate — micro reaction time → macro traffic physics.
+
 ## 2026-07-11 — Stage 7: kinematic bicycle body, the embodiment control
 **Done:** second body model behind a switch (`bodyModel: 'lane' | 'bicycle'`) — same
 IDM/MOBIL brain, executed through continuous (x, y, heading) with a steering cascade

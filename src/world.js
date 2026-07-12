@@ -871,6 +871,32 @@ var World = class World {
           if (veh.v > 0.3) veh.acc = Math.min(veh.acc, -0.5);
         }
       }
+
+      // anti-stalemate creep: nothing PHYSICAL blocks a stopped car with clear pavement
+      // ahead — only phantom constraints do (claims, scan margins, corridor leaders that
+      // are laterally clear), and a real driver creeps into ambiguity after a few
+      // seconds. This dissolves the whole mutual-wait deadlock class instead of patching
+      // each pair geometry (three distinct ones froze the bottleneck loop before this).
+      if (veh.v < 0.5) {
+        veh.stallT = (veh.stallT || 0) + dt;
+        if (veh.stallT > 3 && veh.v < 2.5) {
+          let clear = true;
+          const n2 = this.all.length;
+          for (let k = 1; k < n2; k++) {
+            const o = this.all[(veh.allIdx + k) % n2];
+            const d = this.distAhead(veh.x, o.x);
+            if (d > 8 + 20) break;   // 20 = max body length: fronts sort, rears don't
+            if (d - o.len < 8 && this.bandsOverlap(o.band(), veh.band(), 0.05)) {
+              clear = false; break;
+            }
+          }
+          if (clear && veh.onRamp) {
+            const gapWall = veh.onRamp.len + 40 - 0.5 - this.distAhead(veh.onRamp.x, veh.x);
+            if (gapWall < 8 && veh.y + veh.width / 2 > this.roadWidth() + 0.05) clear = false;
+          }
+          if (clear) veh.acc = Math.max(veh.acc, 0.5);
+        }
+      } else veh.stallT = 0;
     }
   }
 

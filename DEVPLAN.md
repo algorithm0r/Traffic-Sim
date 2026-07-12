@@ -84,7 +84,34 @@ ramp (queue 245, mainline fluid). Merge rate is ~55% of 1D (202 vs 360) — geom
 merging is expensive. Every 2D failure en route was a MISSING real-driver mechanism
 (see DEVLOG 2026-07-11); the fix catalog is itself a research result.
 
+### Stage 9 — Human control loop (v0.3, start of "our model")  [ DONE ]
+- [x] Four continuous per-driver parameters, ideal controller = a point in the space
+      (`IDEAL_CONTROL`, applied by suites): tReact (intermittent decisions, commands held
+      open-loop), percErr (noisy gap/closing perception, 2× on closing), motorErr
+      (tire-angle execution noise = wheel jitter / steering ratio; pedal ×20), laneTol
+      (comfort band: hands-off inside — no heading straightening either — corrections
+      restore margin)
+- [x] Always-on emergency reflex (loom response + ramp wall) with startle; lateral
+      reflex vs bodies alongside; anti-stalemate creep (a stopped car with clear
+      pavement ignores phantom constraints after 3 s)
+- [x] Steering planned over the driver's own hold horizon (dead-beat heading, 4× lateral)
+- [x] T8 (wander emerges: SD 0.33 m, in-lane) + T9 (realistic traffic collision-free)
+**Done when:** wander emerges from mechanism (not injected noise) in the empirical band,
+controls regress clean at the ideal point. ✓
+**Findings:** wander is perception-threshold-driven, not motor-driven (execution noise at
+the tire is wheel jitter / ~15:1 ratio — at milliradian scale corrections drown in their
+own noise); an instant-gain command held open-loop limit-cycles across the lane — drivers
+must plan over their own reaction horizon; satisficing keeping without heading awareness
+ping-pongs edge to edge; corrections restore margin or drivers pile up bimodally at band
+edges. Lane changes run ~2.8× the ideal rate under wander (drivers near lines inherit
+neighbor-lane leaders) — a genuine micro→macro coupling to study.
+
 ### Stage 8 — Calibration & realism refinements  [ PLANNED ]
+- [ ] **D2-bicycle stochastic deadlock (KNOWN ISSUE):** the over-capacity 2-lane
+      bottleneck still freezes in some realizations — three mutual-wait geometries fixed,
+      a fourth (standing queue, head stalls on an undiagnosed constraint) remains; the
+      anti-stalemate creep resolves most. Needs a fresh instrumented session
+      (space-time diagram, queue-head tracing). Discharge check is report-only until fixed.
 - [ ] Merge-zone discharge: raise toward the empirical 80-95% of capacity (candidates:
       ramp-head patience/forced merge, gap anticipation, higher fleet `a`)
 - [ ] Open-boundary mode (independent upstream demand) for true capacity-discharge
