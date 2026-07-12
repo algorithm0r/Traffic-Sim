@@ -8,9 +8,24 @@ var PARAMETERS = {
   // --- road geometry ---
   loopLength: 6000,        // m of mainline loop
   laneCount: 3,            // through lanes; 0 = leftmost (fast). UI range 2-4; tests may use 1
+  laneWidth: 3.7,          // m (US standard 12 ft) — physical, used by the bicycle body
   numInterchanges: 3,      // each interchange = exit (offramp) then onramp, both on the right
   rampLength: 260,         // m of onramp acceleration lane
   rampGap: 220,            // m from an exit gore to its paired onramp gore
+
+  // --- body model: how decisions become motion ---
+  // 'lane'    — the validated 1D control: continuous x + discrete lane, changes teleport
+  // 'bicycle' — kinematic bicycle body: continuous (x, y, heading), IDM+MOBIL decisions
+  //             executed via a steering cascade (highway-env architecture). Same brain,
+  //             different embodiment — the whole point is the controlled comparison.
+  bodyModel: 'lane',
+  steering: {
+    tauLat: 0.6,           // s, lateral-position P-control time constant
+    tauHeading: 0.25,      // s, heading P-control time constant
+    maxLatSpeed: 1.5,      // m/s cap on commanded lateral speed
+    maxSteer: 0.4,         // rad, steering-angle clamp
+    abortBoost: 1.0,       // m/s^2 beyond bSafe before a mid-maneuver abort triggers
+  },
 
   // --- traffic ---
   speedLimitMph: 65,
@@ -64,17 +79,17 @@ var PARAMETERS = {
 //   exitPrep — m before their exit drivers start working right
 var ARCHETYPES = {
   aggressive: { share: 0.20, v0mult: [1.16, 0.05], T: [1.00, 0.10], a: [1.4, 0.10],
-                b: [2.1, 0.15], s0: [2.0, 0.20], len: 4.8, politeness: 0.10, bSafe: 5.0,
-                exitPrep: 700,  truck: false },
+                b: [2.1, 0.15], s0: [2.0, 0.20], len: 4.8, width: 1.8, politeness: 0.10,
+                bSafe: 5.0, exitPrep: 700,  truck: false },
   normal:     { share: 0.50, v0mult: [1.04, 0.04], T: [1.45, 0.15], a: [1.0, 0.10],
-                b: [1.7, 0.15], s0: [2.5, 0.30], len: 4.8, politeness: 0.35, bSafe: 4.0,
-                exitPrep: 1300, truck: false },
+                b: [1.7, 0.15], s0: [2.5, 0.30], len: 4.8, width: 1.8, politeness: 0.35,
+                bSafe: 4.0, exitPrep: 1300, truck: false },
   cautious:   { share: 0.20, v0mult: [0.94, 0.04], T: [1.85, 0.20], a: [0.8, 0.08],
-                b: [1.4, 0.12], s0: [3.0, 0.30], len: 4.8, politeness: 0.60, bSafe: 3.5,
-                exitPrep: 2000, truck: false },
+                b: [1.4, 0.12], s0: [3.0, 0.30], len: 4.8, width: 1.8, politeness: 0.60,
+                bSafe: 3.5, exitPrep: 2000, truck: false },
   truck:      { share: 0.10, v0mult: [0.88, 0.03], T: [1.70, 0.15], a: [0.6, 0.06],
-                b: [1.2, 0.10], s0: [3.5, 0.30], len: 16,  politeness: 0.40, bSafe: 3.5,
-                exitPrep: 1800, truck: true },
+                b: [1.2, 0.10], s0: [3.5, 0.30], len: 16,  width: 2.5, politeness: 0.40,
+                bSafe: 3.5, exitPrep: 1800, truck: true },
 };
 
 // Schema drives the auto-generated control panel (ui.js). One entry per live-tunable.

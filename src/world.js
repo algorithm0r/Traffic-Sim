@@ -37,6 +37,7 @@ var World = class World {
     this.stats = {
       laneChanges: 0, merges: 0, exited: 0, missedExits: 0, collisions: 0,
       spawned: 0, travelTimeSum: 0, travelTimeN: 0,
+      sideswipes: 0, aborts: 0, changeDurSum: 0, changeDurN: 0,   // bicycle body only
     };
 
     this.seedMainline(P.initialDensity);
@@ -179,6 +180,14 @@ var World = class World {
   update(engine) {
     const dt = PARAMETERS.dt;
     this.time += dt;
+    if (PARAMETERS.bodyModel === 'bicycle') {
+      this.sortAll();
+      this.decisionPass2D(dt);
+      this.integratePass2D(dt);
+      this.rampSpawn2D(dt);
+      this.collisionPass2D();
+      return;
+    }
     this.sortLanes();
     this.laneChangePass(dt);
     this.sortLanes();
@@ -282,12 +291,13 @@ var World = class World {
       for (const veh of arr) {
         const ld = this.leaderOf(veh);
         veh.acc = veh.idmAcc(ld ? this.gap(veh, ld) : null, ld ? ld.v : 0);
-        // exit-bound driver stuck left near the gore: drop back to find a gap
+        // exit-bound driver stuck left near the gore: ease off to find a gap — but NEVER
+        // park on a live lane (a stopped car can't merge into flowing traffic and plugs
+        // its lane; if the gap never comes, the realistic outcome is missing the exit)
         if (veh.destExit != null && veh.lane < this.laneCount - 1) {
           const d = this.distAhead(veh.x, this.exits[veh.destExit].x);
           const urgency = clamp(1 - d / veh.p.exitPrep, 0, 1);
-          if (urgency > 0.9) veh.acc = Math.min(veh.acc, -1.5);
-          else if (urgency > 0.7) veh.acc = Math.min(veh.acc, -0.6);
+          if (urgency > 0.7 && veh.v > 8) veh.acc = Math.min(veh.acc, -0.6);
         }
       }
     }
@@ -437,17 +447,376 @@ var World = class World {
     }
   }
 
+  // ==========================================================================
+  // Bicycle-body passes ('bicycle' mode). SAME decision models (IDM + MOBIL),
+  // executed through continuous (x, y, heading) with a steering cascade. Lane
+  // membership becomes geometry: a vehicle occupies whatever its body band
+  // overlaps, so a diagonal car constrains BOTH lanes for the whole maneuver.
+  // The 'lane' passes above are untouched — they are the validated control.
+  // ==========================================================================
+
+  laneCenter(i) { return (i + 0.5) * PARAMETERS.laneWidth; }
+  laneBand(i) { return [i * PARAMETERS.laneWidth, (i + 1) * PARAMETERS.laneWidth]; }
+  roadWidth() { return this.laneCount * PARAMETERS.laneWidth; }
+  rampCenter() { return (this.laneCount + 0.5) * PARAMETERS.laneWidth; }
+  laneOf(veh) {
+    return clamp(Math.round(veh.y / PARAMETERS.laneWidth - 0.5), 0, this.laneCount - 1);
+  }
+  bandsOverlap(a, b, margin) {
+    return a[0] < b[1] + (margin || 0) && b[0] < a[1] + (margin || 0);
+  }
+
+  sortAll() {
+    this.all = this.vehicles.slice().sort((a, b) => a.x - b.x);
+    for (let i = 0; i < this.all.length; i++) this.all[i].allIdx = i;
+    for (const r of this.onramps) r.count2D = 0;
+    for (const veh of this.vehicles) if (veh.onRamp) veh.onRamp.count2D++;
+  }
+
+  // nearest vehicle ahead of / behind `veh` whose body band overlaps `band`
+  scanAhead(veh, band, maxDist) {
+    const n = this.all.length;
+    for (let k = 1; k < n; k++) {
+      const o = this.all[(veh.allIdx + k) % n];
+      if (this.distAhead(veh.x, o.x) > maxDist) return null;
+      if (this.bandsOverlap(o.band(), band, 0.15)) return o;
+    }
+    return null;
+  }
+  scanBehind(veh, band, maxDist) {
+    const n = this.all.length;
+    for (let k = 1; k < n; k++) {
+      const o = this.all[(veh.allIdx - k + n) % n];
+      if (this.distAhead(o.x, veh.x) > maxDist) return null;
+      if (this.bandsOverlap(o.band(), band, 0.15)) return o;
+    }
+    return null;
+  }
+  gapX(f, l) { return this.distAhead(f.x, l.x) - l.len; }
+
+  // someone nearby is already steering into `target` — accepting too would converge
+  // (the 2D analogue of two 1D vehicles claiming the same gap; the collision log
+  // showed exactly this: 0>1 meeting 2>1, and mainline changers meeting ramp mergers)
+  convergenceConflict(veh, target) {
+    // Tight radius on purpose: the logged sideswipes all had x-gaps of ~4 m. A wide veto
+    // radius froze the merge system solid once mandatory changers became committed
+    // (long-lived `changing` windows vetoed every merger along whole segments).
+    const n = this.all.length;
+    for (let k = 1; k < Math.min(n, 8); k++) {
+      const ahead = this.all[(veh.allIdx + k) % n];
+      if (ahead !== veh && ahead.changing && ahead.targetLane === target &&
+          this.distAhead(veh.x, ahead.x) <= veh.len + ahead.len + 10) return true;
+      const behind = this.all[(veh.allIdx - k + n) % n];
+      if (behind !== veh && behind.changing && behind.targetLane === target &&
+          this.distAhead(behind.x, veh.x) <= veh.len + behind.len + 10) return true;
+    }
+    return false;
+  }
+
+  // MOBIL against a target lane, geometric edition. Returns true and starts the
+  // maneuver on acceptance. `forced` skips the incentive (mandatory at high urgency).
+  mobil2D(veh, target, bonus, bSafe, forced) {
+    if (this.convergenceConflict(veh, target)) return false;
+    const tb = this.laneBand(target);
+    const nl = this.scanAhead(veh, tb, 300);
+    const nf = this.scanBehind(veh, tb, 300);
+    if (nl && this.gapX(veh, nl) < 0.5) return false;
+    if (nf && nf !== nl && this.gapX(nf, veh) < 0.5) return false;
+    const myNew = veh.idmAcc(nl ? Math.max(this.gapX(veh, nl), 0.1) : null, nl ? nl.v : 0);
+    if (myNew < -bSafe) return false;
+    let nfNew = 0, nfOld = 0;
+    if (nf && nf !== nl) {
+      nfNew = nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v);
+      if (nfNew < -bSafe) return false;
+      nfOld = nf.idmAcc(nl ? Math.max(this.gapX(nf, nl), 0.1) : null, nl ? nl.v : 0);
+    }
+    if (!forced) {
+      const ob = veh.band();
+      const ol = this.scanAhead(veh, ob, 300), of = this.scanBehind(veh, ob, 300);
+      const myOld = veh.idmAcc(ol ? Math.max(this.gapX(veh, ol), 0.1) : null, ol ? ol.v : 0);
+      let ofNew = 0, ofOld = 0;
+      if (of && of !== ol) {
+        ofOld = of.idmAcc(Math.max(this.gapX(of, veh), 0.1), veh.v);
+        ofNew = of.idmAcc(ol ? Math.max(this.gapX(of, ol), 0.1) : null, ol ? ol.v : 0);
+      }
+      const gain = (myNew - myOld)
+                 + veh.p.politeness * ((nfNew - nfOld) + (ofNew - ofOld)) + bonus;
+      if (gain <= PARAMETERS.mobilThreshold) return false;
+    }
+    veh.startLane = veh.onRamp ? this.laneCount - 1 : this.laneOf(veh);
+    veh.targetLane = target;
+    veh.changing = true;
+    veh.changeStart = this.time;
+    veh.acceptedBSafe = bSafe;   // abort threshold must respect what was accepted
+    return true;
+  }
+
+  decisionPass2D(dt) {
+    const P = PARAMETERS;
+    const right = this.laneCount - 1;
+    for (const veh of this.all) {
+      if (veh.cooldown > 0) veh.cooldown -= dt;
+
+      // IDM against whoever geometrically constrains my band
+      const lead = this.scanAhead(veh, veh.band(), 400);
+      veh.acc = veh.idmAcc(lead ? Math.max(this.gapX(veh, lead), 0.1) : null,
+                           lead ? lead.v : 0);
+
+      // ramp: end-wall + mainline speed-matching + the merge maneuver
+      if (veh.onRamp) {
+        const ramp = veh.onRamp;
+        const prog = Math.min(this.distAhead(ramp.x, veh.x), ramp.len);
+        const accWall = veh.idmAcc(Math.max(ramp.len - 0.5 - prog, 0.1), 0);
+        veh.acc = Math.min(veh.acc, accWall);
+        if (prog < ramp.len * 0.7) {
+          const ml = this.scanAhead(veh, this.laneBand(right), 300);
+          const accMain = veh.idmAcc(ml ? Math.max(this.gapX(veh, ml), 0.1) : null,
+                                     ml ? ml.v : 0);
+          veh.acc = Math.min(Math.max(accWall, accMain),
+                             lead ? veh.idmAcc(Math.max(this.gapX(veh, lead), 0.1), lead.v)
+                                  : accMain);
+        }
+        if (!veh.changing) {
+          if (veh.cooldown <= 0) {
+            const bSafeM = 4 + clamp(prog / ramp.len, 0, 1) * 4;
+            this.mobil2D(veh, right, 0, bSafeM, true);
+          }
+        } else {
+          // mid-merge monitor: if the lane-band follower is being squeezed and we're
+          // still mostly on the ramp band, bail back to the ramp (real merge behavior)
+          // committed like a mandatory change: bail only near the physical braking limit
+          // (a softer threshold churned accept→abort→retry and starved the ramp)
+          const nf = this.scanBehind(veh, this.laneBand(right), 200);
+          const stillOnRamp = veh.y + veh.width / 2 > this.roadWidth() + 0.1;
+          if (nf && stillOnRamp &&
+              nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v) < -(P.bMax - 0.5)) {
+            veh.changing = false;   // steering target reverts to the ramp center
+            veh.cooldown = 1.5;     // hysteresis: no instant re-accept (abort thrash)
+            this.stats.aborts++;
+          }
+        }
+        continue;
+      }
+
+      // exit urgency (identical brain to the lane body)
+      let urgency = 0, planningLeftBlock = false;
+      if (veh.destExit != null) {
+        const d = this.distAhead(veh.x, this.exits[veh.destExit].x);
+        urgency = clamp(1 - d / veh.p.exitPrep, 0, 1);
+        const lanesToCross = right - this.laneOf(veh);
+        planningLeftBlock = d < veh.p.exitPrep + 600 * lanesToCross + 400;
+        // gap-seek braking only while stuck, never mid-maneuver, and NEVER below a
+        // rolling floor — parking on a live lane deadlocks (a stopped car can't merge
+        // into flowing traffic; the realistic failure is missing the exit)
+        if (!veh.changing && this.laneOf(veh) < right && urgency > 0.7 && veh.v > 8) {
+          veh.acc = Math.min(veh.acc, -0.6);
+        }
+      }
+
+      if (veh.changing) {
+        // abort: the target-lane follower is being squeezed and we're still mostly home.
+        // A MANDATORY (exit-forced) changer is committed — it bails only if the follower
+        // would need physically impossible braking; polite thresholds caused an
+        // accept-abort wobble loop at every gore that acted as a rolling bottleneck.
+        const abortThresh = veh.mandatory
+          ? P.bMax
+          : (veh.acceptedBSafe || veh.p.bSafe) + P.steering.abortBoost;
+        const nf = this.scanBehind(veh, this.laneBand(veh.targetLane), 200);
+        const progLat = Math.abs(veh.y - this.laneCenter(veh.startLane))
+                      / PARAMETERS.laneWidth;
+        if (nf && progLat < 0.4 && veh.targetLane !== veh.startLane &&
+            nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v) < -abortThresh) {
+          veh.targetLane = veh.startLane;
+          veh.cooldown = 1.5;
+          this.stats.aborts++;
+        }
+        continue;
+      }
+      if (veh.cooldown > 0) continue;
+
+      const lane = this.laneOf(veh);
+      if (urgency > 0 && lane < right) {
+        const relax = veh.p.bSafe + urgency * (P.bMax - veh.p.bSafe) * 0.6;
+        if (this.mobil2D(veh, lane + 1, urgency * P.mandatoryBoost + P.keepRightBias,
+                         relax, urgency > 0.6)) {
+          veh.mandatory = true;
+          continue;
+        }
+      }
+      if (urgency > 0.3) continue;
+
+      let courtesy = 0;
+      if (lane === right && this.laneCount > 1) {
+        for (const ramp of this.onramps) {
+          if (!ramp.count2D) continue;
+          const d = this.distAhead(veh.x, (ramp.x + ramp.len) % this.L);
+          if (d < ramp.len + 250) { courtesy = 1.2; break; }
+        }
+      }
+      if (!courtesy && lane < right &&
+          this.mobil2D(veh, lane + 1, P.keepRightBias, veh.p.bSafe, false)) {
+        veh.mandatory = false; continue;
+      }
+      const leftBanned = (veh.p.truck && lane === 1 && this.laneCount >= 3) || planningLeftBlock;
+      if (lane > 0 && !leftBanned &&
+          this.mobil2D(veh, lane - 1, courtesy - P.keepRightBias * (courtesy ? 0 : 1),
+                       veh.p.bSafe, false)) {
+        veh.mandatory = false;
+      }
+    }
+  }
+
+  integratePass2D(dt) {
+    const P = PARAMETERS;
+    const right = this.laneCount - 1;
+    let removed = false;
+    for (const veh of this.all) {
+      // steering target: mid-maneuver → target lane center; on-ramp → ramp center
+      const yTarget = veh.changing ? this.laneCenter(veh.targetLane)
+                    : veh.onRamp ? this.rampCenter()
+                    : this.laneCenter(this.laneOf(veh));
+      veh.steerToward(yTarget);
+
+      const vNew = Math.max(0, veh.v + veh.acc * dt);
+      const adv = (veh.v + vNew) / 2 * dt;
+      const oldX = veh.x;
+      veh.psi = clamp(veh.psi + vNew * Math.tan(veh.delta) / veh.wheelbase * dt, -0.3, 0.3);
+      veh.x = ((veh.x + adv * Math.cos(veh.psi)) % this.L + this.L) % this.L;
+      veh.y += adv * Math.sin(veh.psi);
+      veh.v = vNew;
+
+      // road edges (ramp band only exists along the ramp)
+      const hi = (veh.onRamp ? this.roadWidth() + P.laneWidth : this.roadWidth())
+               - veh.width / 2 - 0.05;
+      const lo = veh.width / 2 + 0.05;
+      if (veh.y < lo) { veh.y = lo; veh.psi = Math.max(veh.psi, 0) * 0.5; }
+      if (veh.y > hi) { veh.y = hi; veh.psi = Math.min(veh.psi, 0) * 0.5; }
+
+      // ramp bookkeeping: hard wall at the ramp end; merged = body fully on the road
+      if (veh.onRamp) {
+        const ramp = veh.onRamp;
+        const prog = this.distAhead(ramp.x, veh.x);
+        if (prog >= ramp.len - 0.5 && prog < ramp.len + 50) {
+          veh.x = (ramp.x + ramp.len - 0.5) % this.L;
+          if (veh.y + veh.width / 2 > this.roadWidth()) veh.v = 0;
+        }
+        if (veh.y + veh.width / 2 <= this.roadWidth() + 0.05) {
+          veh.onRamp = null;
+          this.stats.merges++;
+        }
+      }
+
+      // maneuver completion
+      if (veh.changing && Math.abs(veh.y - this.laneCenter(veh.targetLane)) < 0.15 &&
+          Math.abs(veh.psi) < 0.03) {
+        veh.changing = false;
+        veh.lane = veh.targetLane;
+        veh.cooldown = P.laneChangeCooldown * (veh.mandatory ? 0.5 : 1);
+        if (veh.targetLane !== veh.startLane) {
+          this.stats.laneChanges++;
+          this.stats.changeDurSum += this.time - veh.changeStart;
+          this.stats.changeDurN++;
+        }
+      }
+
+      for (const d of this.detectors) {
+        if (this.distAhead(oldX, d.x) <= adv) { d.count++; d.speedSum += vNew; }
+      }
+
+      if (veh.destExit != null && !veh.onRamp &&
+          this.distAhead(oldX, this.exits[veh.destExit].x) <= adv) {
+        if (Math.abs(veh.y - this.laneCenter(right)) < 0.45 * P.laneWidth) {
+          veh.done = true; removed = true;
+          this.stats.exited++;
+          this.stats.travelTimeSum += this.time - veh.bornAt;
+          this.stats.travelTimeN++;
+        } else {
+          this.stats.missedExits++;
+          veh.destExit = (veh.destExit + 1) % this.exits.length;
+        }
+      }
+    }
+    if (removed) this.vehicles = this.vehicles.filter((v) => !v.done);
+  }
+
+  rampSpawn2D(dt) {
+    const P = PARAMETERS;
+    for (const ramp of this.onramps) {
+      ramp.nextArrival -= dt;
+      while (ramp.nextArrival <= 0) { ramp.queue++; ramp.nextArrival += this.expo(P.demand); }
+      if (ramp.queue <= 0) continue;
+      const prof = this.sampleProfile();
+      let rear = null, rearProg = Infinity;
+      for (const veh of this.vehicles) {
+        if (veh.onRamp !== ramp) continue;
+        const p = this.distAhead(ramp.x, veh.x);
+        if (p < rearProg) { rearProg = p; rear = veh; }
+      }
+      if (rear && rearProg <= prof.s0 + rear.len + 6) continue;
+      ramp.queue--;
+      ramp.spawned++;
+      this.stats.spawned++;
+      const vEntry = rear && rearProg < 40
+        ? Math.min(12, rear.v + Math.sqrt(2 * prof.b * Math.max(rearProg - rear.len - prof.s0, 0)))
+        : 12;
+      const veh = new Vehicle(this.nextId++, ramp.x, this.laneCount - 1, vEntry, prof,
+                              this.sampleDest(ramp.x), this.time);
+      veh.onRamp = ramp;
+      veh.y = this.rampCenter();
+      this.vehicles.push(veh);
+      veh.allIdx = 0;   // harmless placeholder until next sortAll
+    }
+  }
+
+  collisionPass2D() {
+    const n = this.all.length;
+    if (n < 2) return;
+    for (let i = 0; i < n; i++) {
+      const f = this.all[i];
+      if (f.done) continue;
+      for (let k = 1; k <= 4; k++) {
+        const l = this.all[(i + k) % n];
+        if (l.done || l === f) continue;
+        const d = this.distAhead(f.x, l.x);
+        if (d > l.len + 2) break;
+        const rearGap = d - l.len;
+        if (rearGap < 0 && this.bandsOverlap(f.band(), l.band(), -0.05)) {
+          const latOverlap = Math.min(f.band()[1], l.band()[1])
+                           - Math.max(f.band()[0], l.band()[0]);
+          if (latOverlap > Math.min(f.width, l.width) * 0.6) this.stats.collisions++;
+          else this.stats.sideswipes++;
+          if (!this.collisionLog) this.collisionLog = [];
+          if (this.collisionLog.length < 40) {
+            const st = (v) => ({ id: v.id, x: Math.round(v.x), y: +v.y.toFixed(1),
+              v: +v.v.toFixed(1), chg: v.changing ? v.startLane + '>' + v.targetLane : null,
+              ramp: !!v.onRamp, dest: v.destExit });
+            this.collisionLog.push({ t: +this.time.toFixed(1), f: st(f), l: st(l) });
+          }
+          f.x = ((l.x - l.len - 0.3) % this.L + this.L) % this.L;
+          f.v = Math.min(f.v, l.v);
+        }
+      }
+    }
+  }
+
   // ---------- metrics ----------
 
   metrics() {
-    let vSum = 0;
-    for (const veh of this.vehicles) vSum += veh.v;
-    const count = this.vehicles.length;
-    let queueTotal = 0, rampCount = 0;
-    for (const r of this.onramps) { queueTotal += r.queue; rampCount += r.vehicles.length; }
+    const bicycle = PARAMETERS.bodyModel === 'bicycle';
+    let vSum = 0, rampCount = 0;
+    for (const veh of this.vehicles) {
+      vSum += veh.v;
+      if (bicycle && veh.onRamp) rampCount++;
+    }
+    let queueTotal = 0;
+    for (const r of this.onramps) {
+      queueTotal += r.queue;
+      if (!bicycle) rampCount += r.vehicles.length;
+    }
+    const count = this.vehicles.length - (bicycle ? rampCount : 0);   // mainline only
     return {
       count, rampCount, queueTotal,
-      meanV: count ? vSum / count : 0,
+      meanV: this.vehicles.length ? vSum / this.vehicles.length : 0,
       density: count / this.laneCount / (this.L / 1000),
       stats: Object.assign({}, this.stats),
     };

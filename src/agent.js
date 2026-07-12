@@ -32,16 +32,44 @@ var Vehicle = class Vehicle {
     this.id = id;
     this.x = x;               // m along the loop
     this.lane = lane;         // 0 = leftmost
-    this.visLane = lane;      // eased toward `lane` for smooth rendering
+    this.visLane = lane;      // eased toward `lane` for smooth rendering (lane body only)
     this.v = v;               // m/s
     this.acc = 0;
     this.p = profile;
     this.len = profile.len;
+    this.width = profile.width || 1.8;
     this.destExit = destExit; // exit index, or null = never exits (through traffic)
     this.bornAt = bornAt;     // sim time of entry (for travel times)
     this.cooldown = 0;        // s until next lane change allowed
     this.onRamp = null;       // the onramp object while still on the acceleration lane
     this.done = false;        // flagged when the vehicle takes its exit
+
+    // --- bicycle-body state (unused by the 'lane' body) ---
+    this.y = (lane + 0.5) * PARAMETERS.laneWidth;  // lateral position, 0 = left road edge
+    this.psi = 0;             // heading relative to the road axis (rad)
+    this.delta = 0;           // steering angle (rad)
+    this.wheelbase = Math.max(2.4, this.len * 0.6);
+    this.targetLane = lane;   // where the maneuver manager is steering us
+    this.changing = false;    // mid-maneuver flag
+    this.changeStart = 0;     // sim time the current maneuver began
+    this.startLane = lane;    // for aborts
+  }
+
+  // lateral body interval [lo, hi] — what "occupying a lane" means for the bicycle body
+  band() { return [this.y - this.width / 2, this.y + this.width / 2]; }
+
+  // Steering cascade (highway-env architecture): lateral-position P-control produces a
+  // commanded lateral speed, converted to a desired heading, tracked by a heading
+  // P-control that yields a steering angle for the kinematic bicycle. All the "car-ness"
+  // (no sideways translation, curvature-limited paths) comes from this + the kinematics.
+  steerToward(yTarget) {
+    const S = PARAMETERS.steering;
+    const vSafe = Math.max(this.v, 1);
+    const vLat = clamp((yTarget - this.y) / S.tauLat, -S.maxLatSpeed, S.maxLatSpeed);
+    const psiDes = Math.asin(clamp(vLat / vSafe, -0.5, 0.5));
+    const psiDot = (psiDes - this.psi) / S.tauHeading;
+    this.delta = clamp(Math.atan(this.wheelbase * psiDot / vSafe), -S.maxSteer, S.maxSteer);
+    return this.delta;
   }
 
   // IDM acceleration for gap s (m, bumper to bumper) to a leader at speed vL.

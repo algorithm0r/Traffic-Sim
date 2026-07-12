@@ -98,6 +98,83 @@ function run(overrides, ticks) {
               `  travelTime=${(s.travelTimeSum / Math.max(s.travelTimeN, 1)).toFixed(0)} s avg`);
 }
 
+// --- T5: bicycle body, homogeneous ring — same IDM equilibrium through a steered body ---
+{
+  console.log('T5  bicycle body: homogeneous ring vs analytic equilibrium');
+  const world = run({
+    bodyModel: 'bicycle', laneCount: 1, numInterchanges: 0, initialDensity: 15,
+    loopLength: 3000, profileVariability: 0, forceArchetype: 'normal', truckFraction: 0,
+    seed: 42,
+  }, 12000);
+  const m = world.metrics();
+  const prof = world.vehicles[0].p;
+  const vEq = world.equilibriumSpeed(prof, world.L / world.vehicles.length - prof.len);
+  const relErr = Math.abs(m.meanV - vEq) / vEq;
+  let offCenter = 0, badPsi = 0;
+  for (const veh of world.vehicles) {
+    if (Math.abs(veh.y - world.laneCenter(0)) > 0.3) offCenter++;
+    if (Math.abs(veh.psi) > 0.05) badPsi++;
+  }
+  check('count conserved', world.vehicles.length === 45, `n=${world.vehicles.length}`);
+  check('collision-free (rear + side)', m.stats.collisions + m.stats.sideswipes === 0,
+        `rear=${m.stats.collisions} side=${m.stats.sideswipes}`);
+  check('mean speed within 4% of analytic equilibrium', relErr < 0.04,
+        `sim=${m.meanV.toFixed(2)}  analytic=${vEq.toFixed(2)}  err=${(relErr * 100).toFixed(1)}%`);
+  check('lane keeping (all centered, straight)', offCenter === 0 && badPsi === 0,
+        `offCenter=${offCenter} badPsi=${badPsi}`);
+}
+
+// --- T6: bicycle body, heterogeneous 3-lane — maneuvers are time-extended and sane -------
+{
+  console.log('T6  bicycle body: heterogeneous 3-lane ring');
+  const world = run({
+    bodyModel: 'bicycle', laneCount: 3, numInterchanges: 0, initialDensity: 20,
+    loopLength: 4000, profileVariability: 1, truckFraction: 0.1, seed: 7,
+  }, 6000);
+  const m = world.metrics();
+  const byType = {};
+  let truckInLane0 = 0;
+  for (const veh of world.vehicles) {
+    (byType[veh.p.name] = byType[veh.p.name] || []).push(veh.v);
+    if (veh.p.truck && world.laneOf(veh) === 0) truckInLane0++;
+  }
+  const mean = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+  const dur = m.stats.changeDurN ? m.stats.changeDurSum / m.stats.changeDurN : 0;
+  check('count conserved', world.vehicles.length === 240, `n=${world.vehicles.length}`);
+  check('collision-free (rear + side)', m.stats.collisions + m.stats.sideswipes === 0,
+        `rear=${m.stats.collisions} side=${m.stats.sideswipes}`);
+  check('lane changes occur', m.stats.laneChanges > 0,
+        `changes=${m.stats.laneChanges} aborts=${m.stats.aborts}`);
+  check('changes take realistic time (2-8 s)', dur > 2 && dur < 8,
+        `mean duration=${dur.toFixed(1)} s`);
+  check('no trucks in the left lane', truckInLane0 === 0);
+  check('aggressive faster than cautious',
+        mean(byType.aggressive) > mean(byType.cautious),
+        `agg=${mean(byType.aggressive).toFixed(1)}  caut=${mean(byType.cautious).toFixed(1)} m/s`);
+}
+
+// --- T7: bicycle body with interchanges — geometric merges and exits ---------------------
+{
+  console.log('T7  bicycle body: interchanges (spawn/merge/exit)');
+  const world = run({
+    bodyModel: 'bicycle', laneCount: 3, numInterchanges: 3, initialDensity: 12,
+    loopLength: 6000, demand: 800, profileVariability: 1, truckFraction: 0.1, seed: 11,
+  }, 12000);
+  const m = world.metrics();
+  const s = m.stats;
+  check('vehicles spawned at ramps', s.spawned > 50, `spawned=${s.spawned}`);
+  check('merges happened', s.merges > 50, `merges=${s.merges}`);
+  check('vehicles exited', s.exited > 50, `exited=${s.exited}`);
+  check('collision-free (rear + side)', s.collisions + s.sideswipes === 0,
+        `rear=${s.collisions} side=${s.sideswipes}`);
+  check('missed exits rare', s.missedExits < 0.2 * (s.exited + 1),
+        `missed=${s.missedExits} vs exited=${s.exited}`);
+  check('ramp queues bounded', m.queueTotal < 50, `queue=${m.queueTotal}`);
+  check('population bounded', m.count < 1200, `n=${m.count}`);
+  console.log(`      meanV=${(m.meanV * 2.23694).toFixed(1)} mph  aborts=${s.aborts}` +
+              `  travelTime=${(s.travelTimeSum / Math.max(s.travelTimeN, 1)).toFixed(0)} s avg`);
+}
+
 // --- T4: renderer draws without exceptions against a recording stub ctx -----------------
 {
   console.log('T4  renderer smoke (stub canvas)');
