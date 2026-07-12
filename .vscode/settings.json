@@ -1,36 +1,37 @@
 {
-  // Chromy peacock — the window chrome in iridescent peacock: deep teal body,
-  // cyan-green sheen, purple eye-spot badges, a glint of gold when debugging.
-  // Mirror of sim/.vscode/settings.json so the theme applies whether the container
-  // or the component repo is opened as the workspace.
-  "peacock.color": "#0b5c6d",
+  // Metallic peacock — brushed gunmetal chrome so this window reads instantly
+  // different from the Media Dashboard's teal. The peacock survives in the accents:
+  // iridescent cyan-green borders, gold eye-spot badges, a purple sheen when debugging.
+  // peacock.color is the gunmetal base so a
+  // Peacock re-derive stays in the metallic family.
+  "peacock.color": "#4f5d66",
   "workbench.colorCustomizations": {
-    "titleBar.activeBackground": "#0b5c6d",
+    "titleBar.activeBackground": "#4f5d66",
     "titleBar.activeForeground": "#e7e7e7",
-    "titleBar.inactiveBackground": "#0b5c6d99",
+    "titleBar.inactiveBackground": "#4f5d6699",
     "titleBar.inactiveForeground": "#e7e7e799",
-    "activityBar.background": "#10839b",
+    "activityBar.background": "#657783",
     "activityBar.foreground": "#e7e7e7",
     "activityBar.inactiveForeground": "#e7e7e799",
     "activityBar.activeBorder": "#37e6c8",
-    "activityBarBadge.background": "#f38be1",
-    "activityBarBadge.foreground": "#15202b",
-    "statusBar.background": "#0b5c6d",
+    "activityBar.activeBackground": "#657783",
+    "activityBarBadge.background": "#782858",
+    "activityBarBadge.foreground": "#e7e7e7",
+    "statusBar.background": "#4f5d66",
     "statusBar.foreground": "#e7e7e7",
-    "statusBarItem.hoverBackground": "#10839b",
-    "statusBarItem.remoteBackground": "#0b5c6d",
+    "statusBarItem.hoverBackground": "#657783",
+    "statusBarItem.remoteBackground": "#4f5d66",
     "statusBarItem.remoteForeground": "#e7e7e7",
-    "statusBar.debuggingBackground": "#6d1c0b",
+    "statusBar.debuggingBackground": "#66584f",
     "statusBar.debuggingForeground": "#e7e7e7",
-    "statusBar.noFolderBackground": "#5c4d7d",
+    "statusBar.noFolderBackground": "#5c5c6e",
     "tab.activeBorderTop": "#37e6c8",
     "panelTitle.activeBorder": "#37e6c8",
-    "sash.hoverBorder": "#10839b",
-    "focusBorder": "#2bb8c9",
-    "progressBar.background": "#a86cf0",
+    "sash.hoverBorder": "#657783",
+    "focusBorder": "#7fd1e0",
+    "progressBar.background": "#d4af37",
     "list.highlightForeground": "#37e6c8",
-    "textLink.foreground": "#3fd3e6",
-    "activityBar.activeBackground": "#10839b",
+    "textLink.foreground": "#56cfe1",
     "commandCenter.border": "#e7e7e799"
   }
 }
