@@ -3,6 +3,23 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-23 — long-exposure calibration: crash rate matches SHRP2, near-crashes ~9× (real)
+
+**Done:** `calib.mjs` at 25 seeds × 900 s ≈ 10⁵ veh·km per variant (2-3 min each in the
+main realm), rates pooled over exposure, plus a SHRP2-style near-crash count (TTC episode
+with ≥0.5 g braking, `evasiveNear`; also on the SafetyPanel). results/calib.md.
+**State:** base: crash 0.010 per 1000 veh·km (1 event) vs SHRP2 0.027 — consistent;
+near-crash 0.52 (53 events), evasive 0.43 (44) vs SHRP2 0.048 — ~9× on their definition,
+so the excess is real, not definitional. Glance tail σ 0.3 halves it (0.23, 0 crashes);
+comfort band ×0.6 makes wander 0.41 and near-crashes 4.2 (the held-command overshoot);
+loomGain ×1.5 and checkProb +0.02 do not help — the latter RAISES near-crashes 2.4×
+(128 events), untraced. Defaults untouched: the lever is the glance-duration
+distribution, which should be matched to Klauer/SHRP2 directly rather than σ tuned to
+the rate. Suites PASS.
+**Next:** glance-duration distribution vs the naturalistic baseline; trace the
+shoulder-check anomaly; phase-diagram figure.
+
+
 ## 2026-09-23 — headless in the main realm (3.9×), runner through the Server, DB path VERIFIED
 
 **Done:** `headless.mjs` loads the browser sim files into the current realm with

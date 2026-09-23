@@ -18,8 +18,10 @@ runs and the figure pending)
   PET metrics. No crash rule anywhere. Ideal point = v0.4.1 behaviour exactly.
 - Browser: safety panel (rates vs SHRP2, PET, crash mix), near-crash graph, safety colour
   mode, reaction-time × and glance-rate × sliders, Drivers human/ideal toggle.
-- smoke 10/10 PASS + VALIDATION PASS + SWEEP PASS @ v0.4.1-6-g43e9462 (2026-09-23)
+- smoke 10/10 PASS + VALIDATION PASS + SWEEP PASS (main-realm loader, 23 s / 2 min);
+  runner → Server → Mongo round trip VERIFIED 2026-09-23 (scratch, dropped)
 - Published: github.com/algorithm0r/Traffic-Sim; Pages at https://algorithm0r.github.io/Traffic-Sim/
+- DB path VERIFIED (socket transport through the research Server on mint)
 - Browser: Chris eyeballed the safety views, rotated bodies and merging 2026-09-23 —
   "looking great". Bicycle body is now the DEFAULT (suites pin 'lane' for the 1D
   controls). DB path UNVERIFIED
@@ -30,8 +32,9 @@ runs and the figure pending)
 - Phase diagram (results/phase.md): fluid to k=25 at 1.0× tReact (43 mph, 0.5 near/1000
   veh·km); breaks at k=20 at 1.3× (42 mph, 9.2); at k=12 at 2.0× (42 mph, 63). Crash rate
   ~0 at ≤1.0×; 10/1000 at k=30 × 2.0×
-- Calibration (k=15, 12,000 veh·km): 0 crashes (SHRP2 0.027 — consistent); near-crashes
-  0.66 (SHRP2 0.048 — ~14×, but 2-3 events). Glance tail is the only lever that registers
+- Calibration (k=15, 10⁵ veh·km per variant, results/calib.md): crash 0.010 (SHRP2 0.027
+  — consistent); near-crashes 0.52, evasive (≥0.5 g) 0.43 vs SHRP2 0.048 — ~9× on their
+  definition, a real excess. Glance tail halves it; defaults not moved
 - Human defaults (T9): 0 crash events; T10 stress: 111 crashes / 216 — rear 42, side 19,
   depart 2, secondary 12
 
@@ -40,14 +43,16 @@ runs and the figure pending)
   v0.5 candidate (Chris's call)
 
 ## Open
-- Near-crash rate ~14× SHRP2 at defaults — needs ≥10⁵ veh·km per setting before tuning
-- Glance-duration distribution vs Klauer/SHRP2 (share > 2 s); PET share vs NGSIM
+- Near-crash rate ~9× SHRP2 at defaults (robust); the lever is the glance-duration tail —
+  match the duration distribution to Klauer/SHRP2 next, not σ to the rate
+- Higher shoulder-check probability RAISES near-crashes 2.4× — untraced
+- PET share (28% < 1 s) vs NGSIM; lane-change rate
 - Lane-change RATE uncalibrated
 - Smoke ~75 s; validate ~3 min; sweep ~5 min; phase ~25 min; calib ~10 min
 
 ## Next action
-Long-exposure attention runs via runner.mjs (overnight); the phase-diagram figure with
-the wave-onset boundary; Chris eyeballs the safety views.
+Glance-duration distribution vs the naturalistic baseline; the shoulder-check anomaly
+trace; the phase-diagram figure with the wave-onset boundary.
 
 ## Blockers
 - none
