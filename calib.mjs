@@ -32,6 +32,8 @@ const VARIANTS = {
   loom:    (a, p) => { a.loomGain = [a.loomGain[0] * 1.5, a.loomGain[1] * 1.5]; },
   check:   (a, p) => { a.checkProb = [Math.min(1, a.checkProb[0] + 0.02), a.checkProb[1]]; },
   combo:   (a, p) => { a.laneTol = [a.laneTol[0] * 0.6, a.laneTol[1] * 0.6]; p.attention.glanceSigma = 0.3; },
+  headway: (a, p) => { p.attention.glanceHeadwayFrac = 0.5; },   // glance ≤ half the time headway
+  headway3:(a, p) => { p.attention.glanceHeadwayFrac = 0.33; },
 };
 
 function run(variant, seed) {
@@ -71,7 +73,7 @@ function run(variant, seed) {
   const per = (x) => 1000 * x / Math.max(vehKm, 1e-9);
   return {
     vehKm, meanV: m.meanV * 2.23694, wanderSD: sdN ? sdSum / sdN : NaN,
-    near: per(s.nearCrashes), evasive: per(s.evasiveNear), crash: per(s.crashes / 2), rear: per(s.rearEnds),
+    near: per(s.nearCrashes), evasive: per(s.evasiveNear), lateral: per(s.lateralConflicts), crash: per(s.crashes / 2), rear: per(s.rearEnds),
     side: per(s.sideswipeCrashes), depart: per(s.departures),
     petConf: s.petN ? s.lcConflicts / s.petN : NaN, glances: s.glances,
   };
@@ -80,7 +82,7 @@ function run(variant, seed) {
 console.log(`attention calibration — k=${density}/ln, 3 lanes, 4 km, ${secs} s × seeds ${seeds.join(',')}`);
 console.log('SHRP2 targets per 1000 veh·km: crash ≈ 0.027 (all severity), near-crash ≈ 0.048 (0.023 experienced adults)');
 const NL = String.fromCharCode(10), FENCE = '```';
-const header = '  variant   veh·km(total)  mph  wanderSD   near  evasive   crash   rear   side  depart  PET<1s  glances   events(near/evasive/crash)';
+const header = '  variant   veh·km(total)  mph  wanderSD   near  evasive lateral   crash   rear   side  depart  PET<1s  glances   events(near/evasive/crash)';
 console.log(header);
 const lines = [];
 const t0 = Date.now();
@@ -96,7 +98,7 @@ for (const name of Object.keys(VARIANTS)) {
   const pooled = (k) => reps.reduce((a, r) => a + r[k] * r.vehKm / 1000, 0) * 1000 / km;
   const avg = (k) => tot(k) / reps.length;
   const line = `  ${name.padEnd(8)} ${km.toFixed(0).padStart(12)}  ${avg('meanV').toFixed(0).padStart(4)}   ` +
-    `${avg('wanderSD').toFixed(3)}   ${pooled('near').toFixed(3)}  ${pooled('evasive').toFixed(3)}  ${pooled('crash').toFixed(4)}  ` +
+    `${avg('wanderSD').toFixed(3)}   ${pooled('near').toFixed(3)}  ${pooled('evasive').toFixed(3)}  ${pooled('lateral').toFixed(3)}  ${pooled('crash').toFixed(4)}  ` +
     `${pooled('rear').toFixed(4)}  ${pooled('side').toFixed(4)}  ${pooled('depart').toFixed(4)}   ` +
     `${(100 * avg('petConf')).toFixed(0).padStart(3)}%  ${avg('glances').toFixed(0).padStart(6)}   ` +
     `${nearEv.toFixed(0)}/${evEv.toFixed(0)}/${crashEv.toFixed(0)}   [${((Date.now() - t0) / 60000).toFixed(1)} min]`;

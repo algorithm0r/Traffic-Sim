@@ -32,9 +32,10 @@ runs and the figure pending)
 - Phase diagram (results/phase.md): fluid to k=25 at 1.0× tReact (43 mph, 0.5 near/1000
   veh·km); breaks at k=20 at 1.3× (42 mph, 9.2); at k=12 at 2.0× (42 mph, 63). Crash rate
   ~0 at ≤1.0×; 10/1000 at k=30 × 2.0×
-- Calibration (k=15, 10⁵ veh·km per variant, results/calib.md): crash 0.010 (SHRP2 0.027
-  — consistent); near-crashes 0.52, evasive (≥0.5 g) 0.43 vs SHRP2 0.048 — ~9× on their
-  definition, a real excess. Glance tail halves it; defaults not moved
+- Calibration (results/calib.md, 2×10⁵ veh·km): crash 0.005 (SHRP2 0.027 ✓). The old
+  "9× near-crash excess" was lateral conflicts miscounted; longitudinal near-crashes were
+  3× SHRP2 with 4-5× realization variance. Glances budgeted against headway (new default)
+  bring the hard set to evasive 0.069 vs SHRP2 0.048. Glance stats match naturalistic
 - Human defaults (T9): 0 crash events; T10 stress: 111 crashes / 216 — rear 42, side 19,
   depart 2, secondary 12
 
@@ -43,16 +44,16 @@ runs and the figure pending)
   phase diagram, browser + DB verified)
 
 ## Open
-- Near-crash rate ~9× SHRP2 at defaults (robust); the lever is the glance-duration tail —
-  match the duration distribution to Klauer/SHRP2 next, not σ to the rate
-- Higher shoulder-check probability RAISES near-crashes 2.4× — untraced
+- Lateral-conflict rate (0.15-0.56 per 1000 veh·km) has no empirical reference; wander SD
+  0.32 vs 0.2-0.3 is the suspect
+- Realization variance 4-5× between independent 10⁵ veh·km sets — quote spreads, not Poisson
 - PET share (28% < 1 s) vs NGSIM; lane-change rate
 - Lane-change RATE uncalibrated
 - Smoke ~75 s; validate ~3 min; sweep ~5 min; phase ~25 min; calib ~10 min
 
 ## Next action
-Glance-duration distribution vs the naturalistic baseline; the shoulder-check anomaly
-trace; the phase-diagram figure with the wave-onset boundary.
+Wander SD toward empirical without the held-command overshoot; the phase-diagram figure;
+Stage 13 open boundaries.
 
 ## Blockers
 - none

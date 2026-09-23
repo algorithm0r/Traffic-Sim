@@ -40,7 +40,8 @@ var World = class World {
       sideswipes: 0, aborts: 0, expiries: 0, changeDurSum: 0, changeDurN: 0,   // bicycle body only
       // safety (Stage 11): crashes are contacts at speed; near-crashes are TTC events
       crashes: 0, rearEnds: 0, sideswipeCrashes: 0, departures: 0, secondary: 0,
-      mergeCrashes: 0, cleared: 0, nearCrashes: 0, evasiveNear: 0, glances: 0, periphCorrections: 0,
+      mergeCrashes: 0, cleared: 0, nearCrashes: 0, evasiveNear: 0, lateralConflicts: 0,
+      glances: 0, periphCorrections: 0,
       petSum: 0, petN: 0, lcConflicts: 0,   // post-encroachment time at lane-change completion
     };
 
@@ -1013,8 +1014,14 @@ var World = class World {
                        closingRate < 0.15;
         if (!stable) veh.nextGlance = this.time + 0.5;
         else {
-          const dur = veh.p.glanceMean *
+          let dur = veh.p.glanceMean *
             Math.exp(gaussFrom(this.rng, 0, A.glanceSigma) - A.glanceSigma * A.glanceSigma / 2);
+          // a glance is budgeted against the time headway: nobody looks away for 2 s
+          // while 1.5 s behind a car, even one that is not closing (calibration variant)
+          if (lead && isFinite(A.glanceHeadwayFrac)) {
+            const headway = Math.max(this.gapX(veh, lead), 0) / Math.max(veh.v, 1);
+            dur = Math.min(dur, A.glanceHeadwayFrac * headway);
+          }
           veh.glanceUntil = this.time + dur;
           this.stats.glances++;
           this.scheduleGlance(veh, lead);
@@ -1173,18 +1180,26 @@ var World = class World {
         const closing = closingT * (1 + veh.closeErr);
         if (closing > 0) D = closing * closing / (2 * gap) / P.emergencyDecel;
         if (gapT < 0.8) D = Math.max(D, 2);            // a body on the bumper
-        // near-crash bookkeeping (ground truth, for the safety metrics)
-        const ttc = closingT > 0 ? gapT / closingT : Infinity;
+        // near-crash bookkeeping (ground truth, for the safety metrics). A longitudinal
+        // near-crash needs a leader genuinely AHEAD (gap > 0); a body ALONGSIDE whose band
+        // has come within the margin of mine (gap ≤ 0) is a lateral conflict — a different
+        // class of near-miss (the decomposition probe found every default-attention
+        // "near-crash" was one of these: two wanderers overlapping, no braking, no glance)
+        const ttc = closingT > 0 && gapT > 0 ? gapT / closingT : Infinity;
         veh.ttc = ttc;   // for the safety view
+        if (gapT <= 0) {
+          if (!veh.inLateral) { veh.inLateral = true; this.stats.lateralConflicts++; }
+        } else veh.inLateral = false;
         if (!veh.inNearCrash && ttc < A.nearCrashTTC) {
           veh.inNearCrash = true; veh.nearEvasive = false; this.stats.nearCrashes++;
+          if (this.onNearCrash) this.onNearCrash(veh, lead, ttc);   // probe hook
         } else if (veh.inNearCrash && ttc > A.nearCrashExit) {
           // SHRP2 counts a near-crash only with an evasive maneuver (≥0.5 g); the plain
           // TTC count is the abundant, looser signal — both are kept
           if (veh.nearEvasive) this.stats.evasiveNear++;
           veh.inNearCrash = false;
         }
-      } else { veh.inNearCrash = false; veh.ttc = Infinity; }
+      } else { veh.inNearCrash = false; veh.inLateral = false; veh.ttc = Infinity; }
       {
         const wall = this.wallDist(veh);
         if (wall < Infinity) D = Math.max(D, veh.v * veh.v / (2 * Math.max(wall, 0.1)) / P.emergencyDecel);

@@ -260,12 +260,16 @@ and 5/6. Magnitudes ~100× empirical — Stage 12.
       0.52, of which 0.43 with ≥0.5 g braking — **~9× SHRP2 on SHRP2's own definition**,
       a real excess (±14%). Glance tail σ 0.5 → 0.3 halves it; tighter comfort band ×8
       worse; loomGain, checkProb no help. Defaults not moved.
-- [ ] Match the glance-duration distribution to the naturalistic baseline (Klauer 2006 /
-      SHRP2: share of glances > 2 s in ordinary driving) and let the near-crash rate follow;
-      then the same for wander SD (0.32 here vs empirical 0.2-0.3)
-- [ ] Why does a HIGHER shoulder-check probability raise near-crashes 2.4× (128 vs 53)?
-      Hypothesis: checked changers hold mid-change beside a body, and their target-lane
-      followers log TTC episodes. A mechanism worth a trace.
+- [x] Glance-duration distribution checked against the naturalistic baseline: 0.90 s mean,
+      5.5% > 2 s, 7.9% eyes-off (naturalistic ~4% > 2 s) — not the problem. Near-crash
+      metric split into longitudinal vs LATERAL conflicts (every default "near-crash" was
+      lateral). Realization variance measured: 4-5× between independent 10⁵ veh·km sets.
+- [x] The missing mechanism: glances budgeted against time headway (Tivesten & Dozza 2014),
+      `glanceHeadwayFrac` 0.5 adopted — paired 27 → 8 near-crashes, evasive rate ≈ SHRP2.
+- [x] The shoulder-check "anomaly" was a random-stream shift (probability exactly 1.0 skips
+      a draw), i.e. realization variance. Closed.
+- [ ] Wander SD 0.32 vs empirical 0.2-0.3 (the suspect behind lateral conflicts), reached
+      through motorErr / laneTol WITHOUT the held-command overshoot a tighter band causes
 - [ ] PET-conflict share (~26% of changes < 1 s) vs NGSIM lane-change headways
 **Done when:** the safety indicators land in defensible bands and the sweeps are written up.
 

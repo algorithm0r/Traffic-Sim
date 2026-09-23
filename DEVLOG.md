@@ -3,6 +3,37 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-23 — v0.5 tagged; the near-crash excess decomposed and resolved (headway-budgeted glances)
+
+**Done:** v0.5 tagged (Stage 11 complete, phase diagram, browser + DB verified). Then the
+near-crash calibration taken apart source-first. `probes/decomp.mjs` (onNearCrash hook):
+at defaults EVERY "near-crash" had a negative TTC — a body alongside whose band swung
+within the 0.35 m margin, no follower glance, no leader braking. The metric now splits
+longitudinal near-crashes (leader genuinely ahead, gap > 0) from **lateral conflicts**
+(gap ≤ 0), both on the SafetyPanel. A second independent 25-seed base set showed
+realization variance of 4-5× between 10⁵ veh·km sets (27 vs 6 events) — near-crashes
+cluster in wave-forming realizations, so single-set Poisson bars are wrong by that
+factor; the "shoulder-check anomaly" was exactly this (a +0.02 that made the cautious
+probability exactly 1.0 skipped a random draw and shifted every stream). The glance
+tail was NOT the problem: glances at defaults are 0.90 s mean, 5.5% > 2 s, 7.9%
+eyes-off — beside the naturalistic ~4% > 2 s. The mechanism that was missing: drivers
+budget a glance against their time headway (Tivesten & Dozza 2014). Added
+`glanceHeadwayFrac`; on the SAME hard seeds it cut near-crashes 27 → 8 (evasive 0.069
+vs SHRP2 0.048) and lateral conflicts 3.8×, leaving long glances where headways allow.
+**Adopted as default (0.5).** T10 becomes a DISTRACTED population (budget off — a phone
+is looked at regardless of the car ahead), same emergent mix. Sweep re-run: 6/6 and 5/6;
+defaults give 0 near-crashes at k ≤ 15, the k=25 × 1.6 tReact collapse persists.
+**Changed:** params (glanceHeadwayFrac), world (headway cap; lateral split; onNearCrash
+hook), charts (panel line), calib.mjs (variants, columns), probes/decomp.mjs (new),
+smoketest (T10 distracted), results/calib.md (consolidated).
+**State:** smoke 10/10 PASS + VALIDATION PASS + SWEEP PASS. Pooled defaults (pre-budget)
+over 2×10⁵ veh·km: crash 0.005 (SHRP2 0.027 ✓), near 0.16 (3×); with the budget on the
+hard set: near 0.079, evasive 0.069 (≈ SHRP2). Open: lateral-conflict rate has no
+reference (wander SD 0.32 vs 0.2-0.3 empirical is the suspect).
+**Next:** wander SD vs empirical (laneTol/motorErr, without the held-command overshoot);
+the phase-diagram figure; Stage 13 open boundaries.
+
+
 ## 2026-09-23 — long-exposure calibration: crash rate matches SHRP2, near-crashes ~9× (real)
 
 **Done:** `calib.mjs` at 25 seeds × 900 s ≈ 10⁵ veh·km per variant (2-3 min each in the

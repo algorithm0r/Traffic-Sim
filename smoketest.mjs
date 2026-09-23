@@ -248,11 +248,15 @@ function run(overrides, ticks, human) {
 
 // --- T10: inattention → accidents EMERGE (no crash rule anywhere) ---------------------
 {
-  console.log('T10 elevated inattention: crashes emerge from glances + looming accumulator');
+  console.log('T10 distracted population: crashes emerge from glances + looming accumulator');
   Object.assign(P, JSON.parse(JSON.stringify(BASE)), {
     bodyModel: 'bicycle', laneCount: 3, numInterchanges: 0, initialDensity: 18,
     loopLength: 4000, profileVariability: 1, truckFraction: 0.1, seed: 9,
   });
+  // DISTRACTION, not ordinary inattention: glances are no longer budgeted against the
+  // time headway (a phone is looked at regardless of the car ahead — the budget, adopted
+  // as the default 2026-09-23, is what keeps ordinary glances safe at this density)
+  P.attention.glanceHeadwayFrac = Infinity;
   for (const k of Object.keys(ctx.ARCHETYPES)) {
     const a = Object.assign(ctx.ARCHETYPES[k], JSON.parse(JSON.stringify(BASE_ARCH[k])));
     a.glanceRate = [a.glanceRate[0] * 3, a.glanceRate[1]];     // phones, not mirrors

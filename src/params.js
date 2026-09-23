@@ -94,6 +94,10 @@ var PARAMETERS = {
     departSpeed: 8,        // m/s, leaving the pavement above this is a run-off-road crash
     shoulder: 1.5,         // m of shoulder beyond each pavement edge a body may straddle
     periphTol: 0.15,       // m from the lane line at which peripheral vision notices the body's edge
+    glanceHeadwayFrac: 0.5, // a glance is capped at this fraction of the time headway (Tivesten &
+                           // Dozza 2014: drivers shorten glances at short headways). Adopted
+                           // 2026-09-23: on the same 25 seeds it cut near-crashes 27 → 8 and
+                           // lateral conflicts 3.8×, landing on SHRP2's rate; Infinity = no cap
     petConflict: 1.0,      // s, post-encroachment time below which a lane change is a conflict
   },
 
