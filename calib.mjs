@@ -78,6 +78,7 @@ function run(variant, seed) {
 
 console.log(`attention calibration — k=${density}/ln, 3 lanes, 4 km, ${secs} s × seeds ${seeds.join(',')}`);
 console.log('SHRP2 targets per 1000 veh·km: crash ≈ 0.027 (all severity), near-crash ≈ 0.048 (0.023 experienced adults)');
+const NL = String.fromCharCode(10), FENCE = '```';
 const header = '  variant   veh·km(total)  mph  wanderSD   near   crash   rear   side  depart  PET<1s  glances   events(near/crash)';
 console.log(header);
 const lines = [];
@@ -100,16 +101,9 @@ for (const name of Object.keys(VARIANTS)) {
 }
 mkdirSync(path.join(__dirname, 'results'), { recursive: true });
 writeFileSync(path.join(__dirname, 'results', 'calib.md'),
-  `# Attention calibration vs SHRP2
-
-k=${density}/ln, 3 lanes, 4 km ring, ${secs} s × ${seeds.length} seeds (${seedSpec}); ` +
-  `rates pooled over total exposure. SHRP2 all-severity: crash 0.027, near-crash 0.048 per 1000 veh·km ` +
-  `(experienced adults 0.023). Generated ${new Date().toISOString()}.
-
-\`\`\`
-${header}
-${lines.join('
-')}
-\`\`\`
-`);
+  '# Attention calibration vs SHRP2' + NL + NL +
+  `k=${density}/ln, 3 lanes, 4 km ring, ${secs} s x ${seeds.length} seeds (${seedSpec}); ` +
+  'rates pooled over total exposure. SHRP2 all-severity: crash 0.027, near-crash 0.048 per 1000 veh-km ' +
+  `(experienced adults 0.023). Generated ${new Date().toISOString()}.` + NL + NL +
+  FENCE + NL + header + NL + lines.join(NL) + NL + FENCE + NL);
 console.log('wrote results/calib.md');
