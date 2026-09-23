@@ -105,13 +105,13 @@ var Observer = class Observer {
       if (bicycle) {
         const ang = Math.atan2(Math.sin(veh.psi) * latScale, Math.cos(veh.psi) * g.pxm * 8);
         ctx.save();
-        ctx.translate(p.px - len / 2, y);
+        ctx.translate(p.px, y);                   // (x, y) is the FRONT; rotate about it
         ctx.rotate(ang);
-        ctx.fillRect(-len / 2, -h / 2, len, h);
+        ctx.fillRect(-len, -h / 2, len, h);
         if (veh.signal != null) {                 // turn signal toward the indicated lane
           const side = w.laneCenter(veh.signal) < veh.y ? -1 : 1;
           ctx.fillStyle = '#ffd23f';
-          ctx.fillRect(len / 2 - 2, side * (h / 2) - 1, 2, 2);
+          ctx.fillRect(-2, side * (h / 2) - 1, 2, 2);
         }
         ctx.restore();
       } else {

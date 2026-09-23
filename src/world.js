@@ -564,7 +564,7 @@ var World = class World {
   wallDist(veh) {
     if (!veh.onRamp) return Infinity;
     const P = PARAMETERS, r = veh.onRamp;
-    const yOuter = veh.y + veh.width / 2 + 0.05;
+    const yOuter = veh.band()[1] + 0.05;   // the whole body, tail included
     if (yOuter <= this.roadWidth()) return Infinity;
     const frac = clamp((yOuter - this.roadWidth()) / P.laneWidth, 0, 1);
     const xWall = (r.x + r.len + P.lc.taperLen * (1 - frac)) % this.L;
@@ -585,7 +585,23 @@ var World = class World {
     return bReq > veh.p.b ? -bReq : Infinity;   // exactly the stop that is required
   }
 
+  // a body's segments (see Vehicle.segments), x-wrapped onto the loop and cached per
+  // geometry stamp (positions change at sortAll and after integration)
+  segs(veh) {
+    if (veh._segStamp === this.geomStamp) return veh._segs;
+    const out = veh.segments();
+    for (const s of out) s.x = ((s.x % this.L) + this.L) % this.L;
+    veh._segs = out; veh._segStamp = this.geomStamp;
+    return out;
+  }
+  // do two segments overlap longitudinally (either order), with a small margin?
+  segsOverlapX(a, b) {
+    const d = this.distAhead(a.x, b.x);
+    return d < this.L / 2 ? d < b.len + 0.5 : this.L - d < a.len + 0.5;
+  }
+
   sortAll() {
+    this.geomStamp = (this.geomStamp || 0) + 1;
     this.all = this.vehicles.slice().sort((a, b) => a.x - b.x);
     for (let i = 0; i < this.all.length; i++) this.all[i].allIdx = i;
     for (const r of this.onramps) r.count2D = 0;
@@ -609,7 +625,7 @@ var World = class World {
   // followers braking for vehicles that were leaving, which interlocked into full-loop
   // gridlock (validation D froze at 0 m/s). The body clears the origin lane naturally.
   footprintOverlaps(o, band, margin) {
-    if (this.bandsOverlap(o.band(), band, margin)) return true;
+    for (const s of this.segs(o)) if (this.bandsOverlap(s.band, band, margin)) return true;
     if (o.claimLane == null) return false;
     const c = this.laneCenter(o.claimLane);
     return this.bandsOverlap([c - o.width / 2, c + o.width / 2], band, margin);
@@ -637,7 +653,15 @@ var World = class World {
       // past a stopped encroacher with tight-but-real clearance (the wall-straddler
       // deadlock: a frozen half-merged car pinned its neighbor via the margin forever)
       const m = (veh.v < 3 && o.v < 1) ? 0.08 : 0.35;
-      let hit = this.bandsOverlap(o.band(), band, m), claim = false;
+      // the nearest SEGMENT of o's body in my band: a turning truck's tail is where
+      // its tail is, not under its nose
+      let hit = false, claim = false, g = Infinity;
+      for (const s of this.segs(o)) {
+        if (!this.bandsOverlap(s.band, band, m)) continue;
+        const ds = this.distAhead(veh.x, s.x);
+        if (ds > this.L / 2) continue;               // that segment is behind my front
+        hit = true; g = Math.min(g, ds - s.len);
+      }
       if (!hit && o.claimLane != null && d < lc.coopRange) {
         // COOPERATION: a claim binds me only if yielding is within what I'd do for a
         // stranger (politeness-scaled comfort) — a stopped merger's signal must not
@@ -655,13 +679,10 @@ var World = class World {
           // >= : IDM saturates at exactly -bMax, and the follower that needs all of it
           // is precisely the one that must see the body entering its lane
           hit = veh.idmAcc(Math.max(d - o.len, 0.1), o.v, this.headwayAt(veh, o.desire)) >= -bound;
-          claim = hit;
+          claim = hit; g = d - o.len;
         }
       }
-      if (hit) {
-        const g = d - o.len;
-        if (g < bestGap) { bestGap = g; best = o; bestClaim = claim; }
-      }
+      if (hit && g < bestGap) { bestGap = g; best = o; bestClaim = claim; }
     }
     veh._leadClaim = bestClaim;
     return best;
@@ -686,13 +707,19 @@ var World = class World {
   lateralClearance(veh, dir) {
     let best = Infinity;
     const n = this.all.length;
-    const myEdge = veh.y + dir * veh.width / 2;
+    const mine = this.segs(veh);
     for (let k = 1; k <= 6 && k < n; k++) {
       for (const o of [this.all[(veh.allIdx + k) % n], this.all[(veh.allIdx - k + n) % n]]) {
-        if (o === veh || o.done || !this.overlaps(veh, o)) continue;
-        if ((o.y - veh.y) * dir <= 0) continue;          // on my other side
-        const c = dir > 0 ? (o.y - o.width / 2) - myEdge : myEdge - (o.y + o.width / 2);
-        if (c < best) best = Math.max(c, 0);
+        if (o === veh || o.done) continue;
+        for (const b of this.segs(o)) {
+          for (const a of mine) {
+            if (!this.segsOverlapX(a, b)) continue;
+            const aMid = (a.band[0] + a.band[1]) / 2, bMid = (b.band[0] + b.band[1]) / 2;
+            if ((bMid - aMid) * dir <= 0) continue;      // on my other side
+            const c = dir > 0 ? b.band[0] - a.band[1] : a.band[0] - b.band[1];
+            if (c < best) best = Math.max(c, 0);
+          }
+        }
       }
     }
     return best;
@@ -1082,9 +1109,13 @@ var World = class World {
             const o = this.all[(veh.allIdx + k) % n2];
             const d = this.distAhead(veh.x, o.x);
             if (d > 8 + 20) break;   // 20 = max body length: fronts sort, rears don't
-            if (d - o.len < 8 && this.bandsOverlap(o.band(), band, 0.05)) {
-              clear = false; break;
+            for (const s of this.segs(o)) {
+              const ds = this.distAhead(veh.x, s.x);
+              if (ds < this.L / 2 && ds - s.len < 8 && this.bandsOverlap(s.band, band, 0.05)) {
+                clear = false; break;
+              }
             }
+            if (!clear) break;
           }
           // at the pavement end, creeping is only sane if the road beside is clear
           if (clear && this.wallDist(veh) < 1.0 &&
@@ -1107,9 +1138,16 @@ var World = class World {
       const vNew = Math.max(0, veh.v + veh.acc * dt);
       const adv = (veh.v + vNew) / 2 * dt;
       const oldX = veh.x, oldY = veh.y;
+      // kinematic bicycle about the REAR: the rear point rolls along the heading (no
+      // slip), the heading turns with the steered front, and the nose swings. (x, y)
+      // stays the FRONT for everyone else. Integrating the front as if it were the
+      // rear axle made a steering truck's tail sweep sideways at >2 m/s — the rotated
+      // body's first probe caught a stopped truck's tail 3 m inside the next lane.
+      const c0 = Math.cos(veh.psi), s0 = Math.sin(veh.psi);
+      const xR = veh.x - veh.len * c0 + adv * c0, yR = veh.y - veh.len * s0 + adv * s0;
       veh.psi = clamp(veh.psi + vNew * Math.tan(veh.delta) / veh.wheelbase * dt, -0.3, 0.3);
-      veh.x = ((veh.x + adv * Math.cos(veh.psi)) % this.L + this.L) % this.L;
-      veh.y += adv * Math.sin(veh.psi);
+      veh.x = ((xR + veh.len * Math.cos(veh.psi)) % this.L + this.L) % this.L;
+      veh.y = yR + veh.len * Math.sin(veh.psi);
       veh.v = vNew;
 
       // relaxation: an accepted short headway grows back to the driver's own
@@ -1135,7 +1173,7 @@ var World = class World {
       }
 
       // an ending lane is left the moment the body is on the through road: merged
-      if (veh.onRamp && veh.y + veh.width / 2 <= this.roadWidth() + 0.2) {
+      if (veh.onRamp && veh.band()[1] <= this.roadWidth() + 0.2) {
         veh.onRamp = null;
         if (!veh.changing) veh.lane = right;
         this.stats.merges++;
@@ -1174,6 +1212,7 @@ var World = class World {
       }
     }
     if (removed) this.vehicles = this.vehicles.filter((v) => !v.done);
+    this.geomStamp++;   // bodies moved: segment caches are stale
   }
 
   rampSpawn2D(dt) {
@@ -1219,10 +1258,16 @@ var World = class World {
         if (l.done || l === f) continue;
         const d = this.distAhead(f.x, l.x);
         if (d > l.len + 2) break;
-        const rearGap = d - l.len;
-        if (rearGap < 0 && this.bandsOverlap(f.band(), l.band(), -0.05)) {
-          const latOverlap = Math.min(f.band()[1], l.band()[1])
-                           - Math.max(f.band()[0], l.band()[0]);
+        // contact = any segment pair overlapping both longitudinally and laterally
+        let latOverlap = -Infinity;
+        for (const a of this.segs(f)) {
+          for (const b of this.segs(l)) {
+            if (!this.segsOverlapX(a, b) || !this.bandsOverlap(a.band, b.band, -0.05)) continue;
+            latOverlap = Math.max(latOverlap,
+              Math.min(a.band[1], b.band[1]) - Math.max(a.band[0], b.band[0]));
+          }
+        }
+        if (latOverlap > -Infinity) {
           const rearEnd = latOverlap > Math.min(f.width, l.width) * 0.6;
           // one EVENT per pair in contact (a stopped pair touching by 5 cm was logged
           // every tick — 116 "sideswipes" that were one graze)

@@ -74,14 +74,31 @@ var Vehicle = class Vehicle {
     this.claimLane = null;    // lane others treat as mine (desire >= dCoop, or committed)
   }
 
-  // lateral body interval [lo, hi] — what "occupying a lane" means for the bicycle body.
-  // KNOWN APPROXIMATION: the box sits at the FRONT's y with no rotation. The rear is
-  // really len·sin(ψ) to the side (a 16 m truck at 0.3 rad: 4.7 m), so merging trucks'
-  // tails can pass through cars alongside in dense jams (T7dense probe, DEVLOG
-  // 2026-09-22). One box spanning both ends was tried and made it worse: cars crawl
-  // at 17° in jams and became phantom walls. The fix is a rotated body (two segments
-  // or an OBB) in every geometric query — Stage 10 follow-up.
-  band() { return [this.y - this.width / 2, this.y + this.width / 2]; }
+  // The rotated body (v0.4.1): (x, y) is the FRONT, the rear sits len·(cos ψ, sin ψ)
+  // behind it. Every geometric query sees the body as a chain of short segments along
+  // its heading (cars 2, trucks 6), each an axis-aligned box at its own position whose
+  // lateral extent includes its own sway (w·|cos ψ| + l·|sin ψ|). One box at the nose's
+  // y let a turning truck's tail (4.7 m off at 0.3 rad) pass through cars alongside;
+  // one box spanning both ends turned every diagonal car into a phantom wall.
+  segments() {
+    const n = Math.max(1, Math.ceil(this.len / 3));
+    const l = this.len / n, s = Math.sin(this.psi), c = Math.cos(this.psi);
+    const ext = this.width * Math.abs(c) + l * Math.abs(s);
+    const out = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const yMid = this.y - (i + 0.5) * l * s;
+      out[i] = { x: this.x - i * l * c, len: l, band: [yMid - ext / 2, yMid + ext / 2] };
+    }
+    return out;
+  }
+
+  // full lateral interval [lo, hi] of the body — the union of its segments (used for
+  // "what lane am I in", the swept corridor, and the pavement-end extent)
+  band() {
+    const s = Math.sin(this.psi);
+    const yR = this.y - this.len * s, ext = this.width * Math.abs(Math.cos(this.psi));
+    return [Math.min(this.y, yR) - ext / 2, Math.max(this.y, yR) + ext / 2];
+  }
 
   // Steering cascade (highway-env architecture): lateral-position P-control produces a
   // commanded lateral speed, converted to a desired heading, tracked by a heading
@@ -101,7 +118,10 @@ var Vehicle = class Vehicle {
     const hLat = Math.max(S.tauLat, 4 * (horizon || 0));
     const hHead = Math.max(S.tauHeading, horizon || 0);
     const vLat = clamp((yTarget - this.y) / hLat, -S.maxLatSpeed, S.maxLatSpeed);
-    const psiDes = Math.asin(clamp(vLat / vSafe, -0.5, 0.5));
+    // heading capped at ~11°: the lateral-speed cap alone let crawling drivers command
+    // 30° (1.5 m/s lateral at 1 m/s forward) — real lane changes at walking pace are
+    // shallow, and a 30° body sweeps most of a lane
+    const psiDes = Math.asin(clamp(vLat / vSafe, -0.2, 0.2));
     const psiDot = (psiDes - this.psi) / hHead;
     this.delta = clamp(Math.atan(this.wheelbase * psiDot / vSafe), -S.maxSteer, S.maxSteer);
     return this.delta;

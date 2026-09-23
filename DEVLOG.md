@@ -3,6 +3,31 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-22 — v0.4.1: rotated bodies, rear-pivot bicycle; repo published
+
+**Done:** bodies are rotated. `Vehicle.segments()` splits each body into short segments
+along its heading (cars 2, trucks 6), each an axis-aligned box at its own position with
+its own sway (w·|cos ψ| + l·|sin ψ|); every 2D geometric query iterates segments (leader
+scan by nearest segment, follower footprint, lateral clearance by segment pairs, contact
+detection, creep check, pavement-end extent, merged criterion). The bicycle now pivots
+about the REAR: the rear point rolls along the heading, the nose swings. The old
+front-referenced integration made a steering truck's tail sweep sideways at >2 m/s (the
+rotated body's first probe caught a stopped truck's tail 3 m inside the next lane).
+Commanded heading capped at ~11° (the lateral-speed cap alone let crawling drivers command
+30°). Observer rotates about the front. Repo published: github.com/algorithm0r/Traffic-Sim
+(public), GitHub Pages on main → https://algorithm0r.github.io/Traffic-Sim/ (About link),
+tags v0.1-v0.4 pushed; v0.4 = Stage 10.
+**Changed:** agent (segments, band as union, ψ cap), world (segs cache + stamp,
+segsOverlapX, all queries), observer (pivot). DEVPLAN Stage 10 rotated-body item checked.
+**State:** smoke 9/9 PASS + VALIDATION PASS @ v0.4.1. Rings across bodies ≤2.8%. D2
+bottleneck: 1410 veh/h/ln, 332 merges (most yet), 0 rear-ends, 1 graze; seeds 22-24:
+1308-1356, 0 collisions; human 20 min: 1263, 0 collisions. **T7dense (3 lanes, k=22, 1200
+veh/h ramps, seed 5) — the config that motivated this: 48 grazes / 34 stuck → 0 / 4.8 at
+the ideal point; human 0 / 6.8.** T8 wander SD 0.328 m (was 0.333). Browser UNVERIFIED.
+**Next:** Stage 11 — fallible perception (looming accumulator replaces the threshold
+reflex; glances; shoulder check as a glance; post-crash state; TTC/PET conflict metrics).
+
+
 ## 2026-09-22 — Stage 10: one lane-change model (desire, relaxation, cooperation); merging is lane changing
 
 **Done:** the bicycle body's ramp-specific rules (speed-match over 70% of the ramp, bSafe

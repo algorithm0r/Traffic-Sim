@@ -72,7 +72,7 @@ check and the claims, and replace them with a single perception-and-attention la
 
 ## Not yet built
 - DB round-trip from this box (runner written; Server/Mongo not exercised).
-- Rotated body geometry (Stage 10 carry-over); browser check of the new merging.
+- Browser check of the new merging and rotated bodies (Pages: algorithm0r.github.io/Traffic-Sim).
 - Everything under Stages 11-13.
 
 ## Stages
@@ -187,10 +187,10 @@ The ramp becomes a lane that ends. Every lateral decision runs through one conti
       peripheral-vision reflex.
 - [x] Suites green (T5-T9, validation A-D) with re-baselines recorded; D2 discharge
       measured against the old 1305 veh/h/ln and the empirical 80-95% band.
-- [ ] **Rotated body** (two segments or an OBB) in every geometric query: bodies are boxes
-      at the front's y, so a turning truck's tail is up to 4.7 m from where the model puts
-      it (dense-jam grazes; a single box spanning both ends made crawling cars phantom
-      walls). Probe: 3 lanes, k=22, 1200 veh/h ramps, seed 5 — 48 grazes / 34 stuck today.
+- [x] **Rotated body** (v0.4.1): segments along the heading in every geometric query, and
+      the bicycle pivots about the rear (the front-referenced integration swept a steering
+      truck's tail sideways). Probe: 3 lanes, k=22, 1200 veh/h ramps, seed 5 — 48 grazes /
+      34 stuck → 0 / 4.8.
 **Done when:** `world.js` has no ramp-specific decision branch — `onRamp` is only a lane
 identity — and the bicycle body passes the full suite with merge discharge at or above
 the v0.2 number. ✓ 2026-09-22: discharge 1422 veh/h/ln (v0.2: 1305; lane body 1230; HEAD
