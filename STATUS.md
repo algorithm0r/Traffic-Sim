@@ -16,7 +16,7 @@ lane changing) / Stage 11 `[ ACTIVE ]` (fallible perception: the layer accidents
   gain + courtesy), thresholds dFree/dSync/dCoop, T(d) + relaxation (τ 25 s), kinematic
   abort, forced regime on an ending lane, lateral clearance. The ramp is a lane that ends.
   No ramp-specific decision branch remains; `onRamp` is a lane identity.
-- smoke 9/9 PASS + VALIDATION PASS @ v0.3-1-gc10a4ec-dirty (2026-09-22, pre-commit);
+- smoke 9/9 PASS + VALIDATION PASS @ v0.3-2-g798c7fd (2026-09-22);
   T1-T3 byte-identical to HEAD — the 1D control is untouched.
 - Browser view UNVERIFIED since 2026-07-12 (new merging not yet eyeballed); DB path UNVERIFIED
 

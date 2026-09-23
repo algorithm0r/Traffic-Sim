@@ -27,7 +27,7 @@ the two program goals (cleaner 2D / emergent accidents), the OTS assessment, Sta
 (signal-based indicator), validate (D2 discharge asserted ≥ 80% of lane body instead of
 report-only), DEVPLAN, STATUS. Harness: contact events counted once per pair; grazes no
 longer teleport the follower (phantom rear-ends).
-**State:** smoke 9/9 PASS + VALIDATION PASS @ v0.3-1-gc10a4ec-dirty (pre-commit). T1-T3
+**State:** smoke 9/9 PASS + VALIDATION PASS @ v0.3-1-gc10a4ec-dirty (pre-commit; committed as v0.3-2-g798c7fd). T1-T3
 byte-identical to HEAD (1D control intact). Rings across bodies within 1.4%. **D2 bottleneck
 (seed 21): HEAD deadlocks (375 veh/h/ln, 34 merges); now 1422 veh/h/ln, 284 merges, breakdown
 Δ8.4 m/s, 0 rear-ends, 1 graze** — 116% of the lane body (1230) and 85% of fleet ring
