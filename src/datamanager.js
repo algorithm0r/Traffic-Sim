@@ -10,8 +10,10 @@ var DataManager = class DataManager {
   constructor(world, db, graphs) {
     this.world = world;
     this.db = db;
-    this.graphs = graphs || {};   // { speed: LineGraph, fd: ScatterGraph }
+    this.graphs = graphs || {};   // { speed: LineGraph, fd: ScatterGraph, near: LineGraph }
     this.samples = [];
+    this.vehKm = 0;               // exposure, for rates
+    this._lastNear = 0;
     this.run = (PARAMETERS.db && PARAMETERS.db.run) || 'run';
     this.flushed = false;
   }
@@ -28,9 +30,20 @@ var DataManager = class DataManager {
         laneChanges: m.stats.laneChanges, merges: m.stats.merges,
         exited: m.stats.exited, missedExits: m.stats.missedExits,
         collisions: m.stats.collisions,
+        crashes: m.stats.crashes, rearEnds: m.stats.rearEnds, sideswipeCrashes: m.stats.sideswipeCrashes,
+        departures: m.stats.departures, secondary: m.stats.secondary,
+        nearCrashes: m.stats.nearCrashes, glances: m.stats.glances, lcConflicts: m.stats.lcConflicts,
+        vehKm: this.vehKm,
       });
       if (this.graphs.speed) this.graphs.speed.push(m.meanV * MS2MPH);
       if (this.graphs.fd && isFinite(det.flow)) this.graphs.fd.push(m.density, det.flow);
+      if (this.graphs.near) {   // near-crashes per minute in this period
+        this.graphs.near.push((m.stats.nearCrashes - this._lastNear) * 60 / period);
+        this._lastNear = m.stats.nearCrashes;
+      }
+    }
+    if (engine.tick % 20 === 0) {   // exposure: sum of distance travelled
+      for (const v of this.world.vehicles) this.vehKm += v.v * P.dt * 20 / 1000;
     }
     if (!this.flushed && engine.tick >= P.epoch) {
       this.flushed = true;

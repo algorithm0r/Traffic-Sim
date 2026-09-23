@@ -8,6 +8,8 @@
 var DriverProfile = class DriverProfile {
   // name — archetype key; spec — ARCHETYPES entry; rng — seeded PRNG; variability — 0..1
   constructor(name, spec, rng, variability) {
+    // browser toggle: every driver at the ideal point (suites set ARCHETYPES directly)
+    if (PARAMETERS.idealDrivers) spec = Object.assign({}, spec, IDEAL_CONTROL);
     const g = (pair, lo, hi) =>
       clamp(variability > 0 ? gaussFrom(rng, pair[0], pair[1] * variability) : pair[0], lo, hi);
     this.name = name;
@@ -23,7 +25,7 @@ var DriverProfile = class DriverProfile {
     this.exitPrep = spec.exitPrep * (variability > 0 ? (0.8 + 0.4 * rng()) : 1);
     this.truck = spec.truck;
     // human control loop (v0.3) — ideal controller = (dt, 0, 0, large)
-    this.tReact   = g(spec.tReact   || [0.05, 0], 0.05, 2.0);
+    this.tReact   = clamp(g(spec.tReact   || [0.05, 0], 0.05, 2.0) * (PARAMETERS.tReactX || 1), 0.05, 3.0);
     this.percErr  = g(spec.percErr  || [0, 0],    0,    0.30);
     this.motorErr = g(spec.motorErr || [0, 0],    0,    0.08);
     this.laneTol  = g(spec.laneTol  || [1.5, 0],  0.05, 1.50);
@@ -31,7 +33,7 @@ var DriverProfile = class DriverProfile {
     // nothing (the ideal point must not shift the control suites' random streams).
     const gs = (v, def, lo, hi) => v == null ? def : (typeof v === 'number' ? clamp(v, lo, hi) : g(v, lo, hi));
     this.loomGain   = gs(spec.loomGain,   1e6, 0.1, 1e6);
-    this.glanceRate = gs(spec.glanceRate, 0,   0,   60) / 60;   // per second
+    this.glanceRate = gs(spec.glanceRate, 0,   0,   60) / 60 * (PARAMETERS.glanceX == null ? 1 : PARAMETERS.glanceX);   // per second
     this.glanceMean = gs(spec.glanceMean, 0.5, 0.1, 5);
     this.checkProb  = gs(spec.checkProb,  1,   0,   1);
   }

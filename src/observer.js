@@ -99,9 +99,12 @@ var Observer = class Observer {
       const y = p.y + (bicycle ? veh.y * latScale : (veh.visLane + 0.5) * g.laneH);
       const len = Math.max(2.5, veh.len * g.pxm);
       const h = veh.p.truck ? 7 : 6;
+      const ttc = veh.ttc == null ? Infinity : veh.ttc;
       ctx.fillStyle = veh.crashed ? '#ff2d6f'
         : P.colorMode === 'type'
         ? ({ aggressive: '#ff7b72', normal: '#7fd1ff', cautious: '#d2a8ff', truck: '#e3b341' })[veh.p.name]
+        : P.colorMode === 'safety'
+        ? (ttc > 6 ? '#3d4a58' : hsl(120 * clamp((ttc - 1) / 5, 0, 1), 85, 55))   // grey = no conflict; red → green by TTC
         : hsl(130 * clamp(veh.v / vmax, 0, 1), 75, 55);
       if (bicycle) {
         const ang = Math.atan2(Math.sin(veh.psi) * latScale, Math.cos(veh.psi) * g.pxm * 8);
@@ -113,6 +116,10 @@ var Observer = class Observer {
           const side = w.laneCenter(veh.signal) < veh.y ? -1 : 1;
           ctx.fillStyle = '#ffd23f';
           ctx.fillRect(-2, side * (h / 2) - 1, 2, 2);
+        }
+        if (P.colorMode === 'safety' && w.time < veh.glanceUntil) {   // eyes off the road
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(-len / 2 - 1, -1, 2, 2);
         }
         ctx.restore();
       } else {

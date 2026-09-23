@@ -3,6 +3,40 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-23 — Stage 12 first pass: the phase diagram, calibration power, safety views
+
+**Done:** (1) `phase.mjs` — reaction time × density, 6 × 6 cells × 3 seeds × 600 s, human
+archetypes, 3-lane 4 km ring → `results/phase.md|json`. **The breakdown boundary runs
+diagonally:** at 1.0× tReact the ring is fluid to k=25 (43 mph, near-crashes 0.5 per
+1000 veh·km); at 1.3× it breaks at k=20 (42 mph, 9.2); at 1.6× at k=20 (38 mph, 28);
+at 2.0× at k=12 (42 mph, 63). Near-crash rate spans three orders of magnitude across the
+grid (0.1 → 459); crash rate is ~0 everywhere at ≤1.0× (max 0.15 at k=30) and reaches
+10 per 1000 veh·km at k=30 × 2.0×. Detector speed std (wave onset) tracks the same
+boundary (0.3-0.4 m/s fluid, 3-8 m/s broken). Reaction time is a phase-transition
+control parameter — the micro→macro coupling the program was built to study, in one
+table. (2) `calib.mjs` — default attention at k=15 vs SHRP2 (35 M miles: 1,541 crashes,
+2,705 near-crashes → 0.027 / 0.048 per 1000 veh·km, all severity): 0 crashes in 12,000
+veh·km (upper bound ~0.08, consistent), near-crashes 0.66 (~14× SHRP2, but 2-3 events —
+±60%). Only the glance-duration tail registers (σ 0.5 → 0.3 gives 0.16); a tighter
+comfort band makes wander worse (0.33 → 0.41 m: held-command overshoot); loomGain and
+checkProb are invisible at this exposure. Defaults untouched. (3) Browser safety views:
+SafetyPanel (exposure, rates vs SHRP2, PET, crash-mix bars), near-crashes-per-minute
+graph, 'safety' colour mode (TTC red→green, white dot = eyes off, magenta = crashed),
+sliders for reaction-time × and glance-rate ×, a Drivers: human/ideal toggle. Playwright
+could not launch here; the stub-canvas T4 covers the draw paths.
+**Changed:** new phase.mjs, calib.mjs, results/; charts (SafetyPanel), datamanager
+(safety samples, exposure, near-rate graph), observer (safety mode), main/ui/index
+(layout, toggles), params (idealDrivers, tReactX, glanceX, schema), agent (multipliers
+apply to new drivers), world (veh.ttc), smoketest T4 (panel draws), README, DEVPLAN.
+**State:** smoke 10/10 PASS (ideal suites unchanged: the multipliers default to 1 and the
+toggle to false). Phase and calibration outputs committed under results/. Browser still
+UNVERIFIED by eye.
+**Next:** long-exposure runs (≥10⁵ veh·km per setting) through runner.mjs before moving
+any attention default; glance-duration distribution vs Klauer/SHRP2; PET share vs NGSIM;
+then the phase diagram as a figure with multiple seeds per cell and the wave-onset
+boundary drawn — the first paper-shaped result. Chris: eyeball the new views.
+
+
 ## 2026-09-23 — Stage 11 complete: peripheral lane keeping, PET, the safety sweep
 
 **Done:** (1) Peripheral lane keeping during glances (Summala et al. 1996: peripheral

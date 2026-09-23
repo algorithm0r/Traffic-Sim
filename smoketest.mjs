@@ -10,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ctx = { Math, console, Date };
 vm.createContext(ctx);
 for (const f of ['util.js', 'params.js', 'engine.js', 'agent.js', 'world.js',
-                 'observer.js', 'charts.js']) {
+                 'observer.js', 'charts.js', 'datamanager.js']) {
   vm.runInContext(readFileSync(path.join(__dirname, 'src', f), 'utf8'), ctx, { filename: f });
 }
 
@@ -306,6 +306,9 @@ function run(overrides, ticks, human) {
     speed.push(1); speed.push(2); speed.draw(stub);
     const fd = new ctx.ScatterGraph(0, 0, 100, 50, 'x', 0, 80, 0, 2600);
     fd.push(10, 1000); fd.draw(stub);
+    const dm = new ctx.DataManager(world, null, {});
+    dm.vehKm = 12.3;
+    new ctx.SafetyPanel(0, 0, 400, 150, dm).draw(stub);
   } catch (e) { threw = e; }
   check('draw() completes', threw === null, threw ? threw.message : undefined);
   check('vehicles drawn', rects > world.vehicles.length,

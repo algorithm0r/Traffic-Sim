@@ -239,11 +239,26 @@ and 5/6. Magnitudes ~100× empirical — Stage 12.
 - [ ] Crash-type proportions vs NHTSA/GES freeway shares; near-crash : crash ratio vs
       SHRP2; crash rate per VMT order of magnitude (rarity is the challenge — expect to
       lean on surrogates).
-- [ ] The tReact × density phase diagram (sweep.mjs found the collapse at k=25, 1.6×
-      tReact): FD / wave onset / near-crash rate, multiple seeds, long runs via runner.mjs
-- [ ] Bring default-attention crash rates toward ~1.5 per million veh·km (candidates:
-      glance-duration tail, wander SD toward the empirical 0.2-0.3, checkProb, loomGain)
-      without touching the ideal point; PET-conflict share vs NGSIM lane-change headways
+- [x] The tReact × density phase diagram (`phase.mjs`, 6×6×3 seeds, results/phase.md):
+      the breakdown boundary runs diagonally — fluid to k=25 at 1.0×, breaks at k=20 at
+      1.3×, at k=12 at 2.0×; near-crash rate spans 0.1 → 459 per 1000 veh·km; wave-onset
+      std tracks the same boundary. Reaction time is a phase-transition control parameter.
+- [ ] Phase diagram as a figure (boundary drawn, more seeds per cell, longer runs); the
+      write-up of the finding
+- [x] Reference rates grounded (SHRP2 NDS: 35 M miles, 1,541 crashes, 2,705 near-crashes
+      → 0.027 crashes and 0.048 near-crashes per 1000 veh·km, all severity; experienced
+      adults 37 near-crashes per million miles). These, not police-reported rates, are the
+      comparison for a sim that counts any contact at speed.
+- [x] `calib.mjs` (k=15, 900 s × 3 seeds ≈ 12,000 veh·km per variant): defaults give
+      0 crashes (upper bound ~0.08, consistent with 0.027) and 0.66 near-crashes per 1000
+      veh·km (~14× SHRP2, ±60% Poisson). The glance-duration tail is the only lever that
+      registers (σ 0.5 → 0.3: 0.16); tightening the comfort band makes wander WORSE
+      (SD 0.33 → 0.41, the held-command overshoot T8 found); loomGain and checkProb do not
+      register at this exposure. Defaults left alone — three events is no basis for tuning.
+- [ ] Long-exposure runs (≥10⁵ veh·km per setting, runner.mjs overnight) before any
+      default is moved; then the glance-duration distribution against Klauer/SHRP2
+      (share of glances > 2 s) rather than against the near-crash rate directly
+- [ ] PET-conflict share (~26% of changes < 1 s) vs NGSIM lane-change headways
 **Done when:** the safety indicators land in defensible bands and the sweeps are written up.
 
 ### Stage 13 — Calibration & realism refinements  [ PLANNED ]

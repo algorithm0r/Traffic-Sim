@@ -20,6 +20,10 @@
     <button onclick="reset()">Reset</button>
     <button id="colorBtn" onclick="toggleColor()">Color: speed</button>
     <button id="bodyBtn" onclick="toggleBody()">Body: lane</button>
+    <button id="driversBtn" onclick="toggleDrivers()">Drivers: human</button>
+    <p style="font-size:11px;color:#8a8f98;margin:10px 0 0">Safety view: colour by time-to-collision
+    (grey = none, red &lt; 1.5 s), white dot = eyes off the road, magenta = crashed. Safety
+    metrics need the bicycle body.</p>
     <div id="status"></div>
   </div>
   <canvas id="gameWorld" width="1150" height="760"></canvas>

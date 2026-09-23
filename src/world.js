@@ -1175,9 +1175,10 @@ var World = class World {
         if (gapT < 0.8) D = Math.max(D, 2);            // a body on the bumper
         // near-crash bookkeeping (ground truth, for the safety metrics)
         const ttc = closingT > 0 ? gapT / closingT : Infinity;
+        veh.ttc = ttc;   // for the safety view
         if (!veh.inNearCrash && ttc < A.nearCrashTTC) { veh.inNearCrash = true; this.stats.nearCrashes++; }
         else if (veh.inNearCrash && ttc > A.nearCrashExit) veh.inNearCrash = false;
-      } else veh.inNearCrash = false;
+      } else { veh.inNearCrash = false; veh.ttc = Infinity; }
       {
         const wall = this.wallDist(veh);
         if (wall < Infinity) D = Math.max(D, veh.v * veh.v / (2 * Math.max(wall, 0.1)) / P.emergencyDecel);

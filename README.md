@@ -16,6 +16,10 @@ the shared engine v2.
   against literature bands.
 - **Safety sweep:** `node sweep.mjs` — no DB, ~5 min; near-crash and crash rates per
   1000 veh·km over density × reaction time × glance rate with human drivers.
+- **Phase diagram:** `node phase.mjs` — ~25 min; reaction time × density grid, seed-averaged
+  speed / wave onset / safety rates → `results/phase.json`, `results/phase.md`.
+- **Calibration:** `node calib.mjs` — ~10 min; default-attention safety rates vs SHRP2 across
+  parameter variants.
 - **Live:** https://algorithm0r.github.io/Traffic-Sim/
 
 ## Layout

@@ -33,6 +33,9 @@ var PARAMETERS = {
   demand: 900,             // veh/h arriving at EACH onramp (Poisson)
   truckFraction: 0.10,     // share of spawns that are trucks
   profileVariability: 1,   // scales within-archetype spread; 0 = homogeneous (used by tests)
+  idealDrivers: false,     // true = every driver at IDEAL_CONTROL (the v0.2 control) — browser toggle
+  tReactX: 1,              // live multiplier on archetype reaction time (browser slider; new drivers)
+  glanceX: 1,              // live multiplier on archetype glance rate (browser slider; new drivers)
   throughFraction: 0,      // share of SEEDED mainline vehicles that never exit (experiments)
   forceArchetype: null,    // e.g. 'normal' — every driver identical archetype (tests)
 
@@ -108,7 +111,7 @@ var PARAMETERS = {
 
   // --- rendering ---
   legs: 4,                 // horizontal legs the loop is folded into (stacked vertically)
-  colorMode: 'speed',      // 'speed' | 'type'
+  colorMode: 'speed',      // 'speed' | 'type' | 'safety' (TTC; eyes-off marked)
 
   // --- data collection ---
   reportingPeriod: 100,    // ticks between samples (= 5 s at dt 0.05)
@@ -191,5 +194,7 @@ var PARAM_SCHEMA = [
   { key: 'demand', label: 'Ramp demand (veh/h)', min: 0, max: 2000, step: 50 },
   { key: 'speedLimitMph', label: 'Speed limit (mph)', min: 45, max: 80, step: 5 },
   { key: 'truckFraction', label: 'Truck share', min: 0, max: 0.3, step: 0.05 },
+  { key: 'tReactX', label: 'Reaction time ×', min: 0.5, max: 2.5, step: 0.1, resets: true },
+  { key: 'glanceX', label: 'Glance rate ×', min: 0, max: 5, step: 0.5, resets: true },
   { key: 'updatesPerDraw', label: 'Speed (updates/frame)', min: 1, max: 60, step: 1 },
 ];
