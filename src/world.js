@@ -38,6 +38,9 @@ var World = class World {
       laneChanges: 0, merges: 0, exited: 0, missedExits: 0, collisions: 0,
       spawned: 0, travelTimeSum: 0, travelTimeN: 0,
       sideswipes: 0, aborts: 0, expiries: 0, changeDurSum: 0, changeDurN: 0,   // bicycle body only
+      // safety (Stage 11): crashes are contacts at speed; near-crashes are TTC events
+      crashes: 0, rearEnds: 0, sideswipeCrashes: 0, departures: 0, secondary: 0,
+      mergeCrashes: 0, cleared: 0, nearCrashes: 0, glances: 0,
     };
 
     this.seedMainline(P.initialDensity);
@@ -97,10 +100,28 @@ var World = class World {
   // correctly on a slightly wrong world.
   perceive(veh, gap, vLead) {
     const e = veh.p.percErr;
-    if (!e || gap == null) return { gap, vLead };
-    const gapP = Math.max(gap * (1 + gaussFrom(this.rng, 0, e)), 0.1);
-    const closingP = (veh.v - vLead) * (1 + gaussFrom(this.rng, 0, 2 * e));
+    if (!e || gap == null) { veh.gapErr = 0; veh.closeErr = 0; return { gap, vLead }; }
+    // the sampled errors persist until the next decision: the reflex reads the same
+    // slightly-wrong world the decision did
+    veh.gapErr = gaussFrom(this.rng, 0, e);
+    veh.closeErr = gaussFrom(this.rng, 0, 2 * e);
+    const gapP = Math.max(gap * (1 + veh.gapErr), 0.1);
+    const closingP = (veh.v - vLead) * (1 + veh.closeErr);
     return { gap: gapP, vLead: veh.v - closingP };
+  }
+
+  // next off-road glance: Poisson at the driver's rate, suppressed by task demand
+  // (inverse TTC to the leader — nobody checks the radio while closing fast)
+  scheduleGlance(veh, lead) {
+    const rate = veh.p.glanceRate;
+    if (!rate) { veh.nextGlance = Infinity; return; }
+    let demand = 0;
+    if (lead) {
+      const closing = veh.v - lead.v;
+      if (closing > 0) demand = closing / Math.max(this.gapX(veh, lead), 0.1);
+    }
+    const factor = clamp(1 - PARAMETERS.attention.demandGain * demand, 0.1, 1);
+    veh.nextGlance = this.time - Math.log(1 - this.rng()) / (rate * factor);
   }
 
   // schedule the next decision (±10% jitter so drivers don't phase-lock)
@@ -903,6 +924,7 @@ var World = class World {
     veh.changeStart = this.time;
     veh.acceptedBSafe = b;       // abort threshold must respect what was accepted
     veh.desireAtStart = d;
+    veh.checked = veh.p.checkProb >= 1 || this.rng() < veh.p.checkProb;   // the shoulder check
     veh.signal = target;
     veh.claimLane = target;
     return true;
@@ -947,14 +969,47 @@ var World = class World {
   // ---------- passes ----------
 
   decisionPass2D(dt) {
-    const P = PARAMETERS, lc = P.lc;
+    const P = PARAMETERS, lc = P.lc, A = P.attention;
     for (const veh of this.all) {
       if (veh.cooldown > 0) veh.cooldown -= dt;
-      const decide = this.time >= veh.nextDecision;
 
-      // leader scan every tick — the reflex layer needs ground truth continuously
+      // --- post-crash: stopped, an obstacle to everyone, cleared after a while ---
+      if (veh.crashed) {
+        veh.acc = veh.v > 0 ? -4 : 0;
+        veh.heldAcc = veh.acc; veh.heldDelta = 0; veh.delta = 0;
+        veh.changing = false; veh.signal = null; veh.claimLane = null;
+        if (this.time - veh.crashT > A.incidentClear) { veh.done = true; this.stats.cleared++; }
+        continue;
+      }
+
+      // leader scan every tick — the reflex layer needs the world continuously (it
+      // reads it through the driver's perception errors and attention, below)
       const lead = this.scanAhead(veh, this.sweptBand(veh), 400);
       const leadClaim = veh._leadClaim;
+
+      // --- attention: off-road glances are a process, not noise. During a glance no
+      //     decision is made (it fires the moment the eyes return), commands stay held,
+      //     lane keeping does not correct, looming evidence does not accrue. ---
+      if (veh.nextGlance == null) this.scheduleGlance(veh, lead);
+      let attending = this.time >= veh.glanceUntil;
+      if (attending && this.time >= veh.nextGlance) {
+        // drivers look away when the car is stable: centred in the comfort band, heading
+        // straight, WHEEL CENTRED, not mid-maneuver. A held tire angle integrates heading
+        // (0.01 rad at 29 m/s is 0.1 rad/s and 2.9 m/s² of felt lateral acceleration):
+        // every logged departure was a glance begun with the wheel slightly turned.
+        const stable = !veh.changing && Math.abs(veh.psi) < 0.012 &&
+                       Math.abs(veh.heldDelta) < 0.001 && this.keepTarget(veh) == null;
+        if (!stable) veh.nextGlance = this.time + 0.5;
+        else {
+          const dur = veh.p.glanceMean *
+            Math.exp(gaussFrom(this.rng, 0, A.glanceSigma) - A.glanceSigma * A.glanceSigma / 2);
+          veh.glanceUntil = this.time + dur;
+          this.stats.glances++;
+          this.scheduleGlance(veh, lead);
+          attending = false;
+        }
+      }
+      const decide = attending && this.time >= veh.nextDecision;
 
       if (decide) {
         // --- decision layer: perceive (noisily), command (imperfectly), hold ---
@@ -1050,7 +1105,11 @@ var World = class World {
         }
         if (yT != null && Math.abs(yT - veh.y) > 0.05) {
           const dir = Math.sign(yT - veh.y);
-          const allowed = this.lateralClearance(veh, dir) - lc.latClearance;
+          // the over-the-shoulder look is BELIEVED clearance: a driver who skipped the
+          // check for this maneuver assumes the strip is clear (blind-spot sideswipes
+          // emerge from here); lane-keeping corrections always look
+          const looked = !veh.changing || veh.checked;
+          const allowed = (looked ? this.lateralClearance(veh, dir) : Infinity) - lc.latClearance;
           if (allowed <= 0.02) {
             // blocked alongside: hold, and drop back to break the lockstep (the
             // zipper's other half — holding lateral alone re-gridlocked the loop)
@@ -1067,28 +1126,40 @@ var World = class World {
       }
       veh.acc = veh.heldAcc;
 
-      // --- reflex layer, every tick, beneath the slow loop ---
-      // longitudinal loom response (leader, and the pavement end for an ending lane)
-      let panic = false;
+      // --- reflex layer, every tick, beneath the slow loop: evidence accumulation on
+      //     perceived looming (Markkula et al. 2016). Danger D = required deceleration
+      //     (closing²/2·gap — the loom quantity) as PERCEIVED, relative to the emergency
+      //     threshold; evidence accrues at loomGain·(D−1) while the eyes are on the road,
+      //     leaks otherwise; the brake fires at 1 and holds while the danger persists.
+      //     Infinite gain is the old same-tick reflex; realistic gain gives the
+      //     kinematics-dependent brake onset the naturalistic data show, and a glance
+      //     makes the onset wait for the eyes. No crash rule anywhere in here. ---
+      let D = 0;
       if (lead) {
-        const gap = this.gapX(veh, lead), closing = veh.v - lead.v;
-        if (gap < 0.8 ||
-            (closing > 0 && closing * closing / (2 * Math.max(gap, 0.1)) > P.emergencyDecel)) {
-          panic = true;
-        }
-      }
-      if (!panic) {
+        const gapT = this.gapX(veh, lead), closingT = veh.v - lead.v;
+        const gap = Math.max(gapT * (1 + veh.gapErr), 0.1);
+        const closing = closingT * (1 + veh.closeErr);
+        if (closing > 0) D = closing * closing / (2 * gap) / P.emergencyDecel;
+        if (gapT < 0.8) D = Math.max(D, 2);            // a body on the bumper
+        // near-crash bookkeeping (ground truth, for the safety metrics)
+        const ttc = closingT > 0 ? gapT / closingT : Infinity;
+        if (!veh.inNearCrash && ttc < A.nearCrashTTC) { veh.inNearCrash = true; this.stats.nearCrashes++; }
+        else if (veh.inNearCrash && ttc > A.nearCrashExit) veh.inNearCrash = false;
+      } else veh.inNearCrash = false;
+      {
         const wall = this.wallDist(veh);
-        if (wall < Infinity && veh.v * veh.v / (2 * Math.max(wall, 0.1)) > P.emergencyDecel) panic = true;
+        if (wall < Infinity) D = Math.max(D, veh.v * veh.v / (2 * Math.max(wall, 0.1)) / P.emergencyDecel);
       }
-      if (panic) {
+      const gainTerm = attending ? veh.p.loomGain * Math.max(D - 1, 0) : 0;
+      veh.loomA = clamp(veh.loomA + (gainTerm - A.loomLeak * veh.loomA) * dt, 0, 1.05);
+      if (veh.loomA >= 1) {
         veh.acc = -P.bMax;
         veh.heldAcc = veh.acc;
         veh.nextDecision = Math.min(veh.nextDecision, this.time + P.startleDelay);
       }
-      // lateral reflex (peripheral vision is fast): drifting toward a body alongside →
-      // straighten now, drop back to break lockstep
-      if (Math.abs(veh.psi) > 0.02 &&
+      // lateral reflex (peripheral vision is fast — while the eyes are on the road):
+      // drifting toward a body alongside → straighten now, drop back to break lockstep
+      if (attending && Math.abs(veh.psi) > 0.02 &&
           this.lateralClearance(veh, Math.sign(veh.psi)) < lc.latClearance + 0.1) {
         veh.heldDelta = veh.steerToward(veh.y, veh.p.tReact);   // reflex, noiseless
         if (veh.v > 0.3) veh.acc = Math.min(veh.acc, -0.5);
@@ -1153,10 +1224,20 @@ var World = class World {
       // relaxation: an accepted short headway grows back to the driver's own
       if (veh.Teff < veh.p.T) veh.Teff = Math.min(veh.p.T, veh.Teff + (veh.p.T - veh.Teff) * dt / lc.tau);
 
-      // road edges: the left edge, and the pavement edge (which closes along a taper)
-      const lo = veh.width / 2 + 0.05;
+      // road edges: the left edge, and the pavement edge (which closes along a taper).
+      // A through-lane body may straddle onto the shoulder; its CENTRE leaving the
+      // pavement at speed is a run-off-road crash (a lane departure that emerges from
+      // wander during a long glance) — the body stops there. Ending-lane bodies are
+      // held to the closing edge (the taper squeeze).
+      const sh = veh.onRamp ? 0 : P.attention.shoulder;
+      const lo = veh.width / 2 + 0.05 - sh;
+      const hi = this.outerEdge(veh.x) - veh.width / 2 - 0.05 + sh;
+      if (!veh.crashed && !veh.onRamp && veh.v > P.attention.departSpeed &&
+          (veh.y < 0 || veh.y > this.outerEdge(veh.x))) {
+        this.stats.departures++;
+        this.crash(veh, 'departure');
+      }
       if (veh.y < lo) { veh.y = lo; veh.psi = Math.max(veh.psi, 0); }
-      const hi = this.outerEdge(veh.x) - veh.width / 2 - 0.05;
       if (veh.y > hi) {
         // the closing edge pushes the body onto the road — a real driver crossing the
         // gore paint — but only into clear pavement: with a body alongside, the pavement
@@ -1211,7 +1292,9 @@ var World = class World {
         }
       }
     }
-    if (removed) this.vehicles = this.vehicles.filter((v) => !v.done);
+    if (removed || this.vehicles.some((v) => v.done)) {
+      this.vehicles = this.vehicles.filter((v) => !v.done);
+    }
     this.geomStamp++;   // bodies moved: segment caches are stale
   }
 
@@ -1278,6 +1361,18 @@ var World = class World {
           if (!fresh) continue;
           if (rearEnd) this.stats.collisions++;
           else this.stats.sideswipes++;
+          // contact at speed is a crash (a scrape at crawl is logged as a graze and the
+          // drivers carry on); both bodies stop and become obstacles → secondary
+          // crashes emerge from the same physics
+          if (Math.max(f.v, l.v) > PARAMETERS.attention.crashSpeed) {
+            const secondary = f.crashed || l.crashed;
+            const merge = !!(f.onRamp || l.onRamp || f.changing || l.changing);
+            this.crash(f, rearEnd ? 'rearEnd' : 'sideswipe');
+            this.crash(l, rearEnd ? 'rearEnd' : 'sideswipe');
+            if (secondary) this.stats.secondary++;
+            if (merge) this.stats.mergeCrashes++;
+            if (rearEnd) this.stats.rearEnds++; else this.stats.sideswipeCrashes++;
+          }
           if (!this.collisionLog) this.collisionLog = [];
           if (this.collisionLog.length < 40) {
             const st = (v) => ({ id: v.id, x: Math.round(v.x), y: +v.y.toFixed(1),
@@ -1292,6 +1387,22 @@ var World = class World {
           f.v = Math.min(f.v, l.v);
         }
       }
+    }
+  }
+
+  // a vehicle is in a crash: it stops where it is and stays an obstacle until cleared
+  crash(veh, type) {
+    if (veh.crashed) return;
+    veh.crashed = true; veh.crashT = this.time; veh.crashType = type;
+    veh.changing = false; veh.signal = null; veh.claimLane = null; veh.loomA = 0;
+    this.stats.crashes++;
+    if (!this.crashLog) this.crashLog = [];
+    if (this.crashLog.length < 200) {
+      this.crashLog.push({ t: +this.time.toFixed(1), id: veh.id, type, v: +veh.v.toFixed(1),
+        x: Math.round(veh.x), lane: veh.lane, glance: this.time < veh.glanceUntil,
+        glanceLeft: +Math.max(veh.glanceUntil - this.time, 0).toFixed(2),
+        psi: +veh.psi.toFixed(3), y: +veh.y.toFixed(2), prof: veh.p.name,
+        chg: veh.changing ? veh.startLane + '>' + veh.targetLane : null });
     }
   }
 

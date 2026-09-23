@@ -53,6 +53,9 @@ for (let r = 0; r < reps; r++) {
         laneChanges: m.stats.laneChanges, merges: m.stats.merges,
         exited: m.stats.exited, missedExits: m.stats.missedExits,
         collisions: m.stats.collisions,
+        crashes: m.stats.crashes, rearEnds: m.stats.rearEnds, sideswipeCrashes: m.stats.sideswipeCrashes,
+        departures: m.stats.departures, secondary: m.stats.secondary,
+        nearCrashes: m.stats.nearCrashes, glances: m.stats.glances,
       });
     }
   }

@@ -3,6 +3,51 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-23 — Stage 11 first pass: fallible perception — accidents emerge
+
+**Done:** ground truth leaves the driver. (1) The emergency reflex is evidence
+accumulation on PERCEIVED looming (Markkula et al. 2016): danger D = required decel
+(closing²/2·gap, read through the decision's perception errors) over the emergency
+threshold; evidence accrues at `loomGain`·(D−1) while the eyes are on the road, leaks
+otherwise, the brake fires at 1 and holds while danger persists. Infinite gain = the old
+same-tick reflex; the ideal-point suites are byte-identical. (2) Off-road glances as a
+process: Poisson at `glanceRate`, lognormal duration around `glanceMean`, suppressed by
+task demand (inverse TTC), and only begun when the car is STABLE — in the comfort band,
+heading straight, wheel centred, not mid-maneuver (every logged departure before that
+rule was a glance begun with the wheel slightly turned: a held tire angle integrates
+heading, 0.01 rad at 29 m/s is 0.1 rad/s). During a glance: no decisions (the decision
+fires when the eyes return), commands held, no lane correction, no looming evidence, no
+peripheral reflex. (3) The shoulder check is decided once per maneuver with `checkProb`;
+unchecked, the driver BELIEVES the strip clear (blind-spot sideswipes). (4) Post-crash:
+a contact with either body above 3 m/s is a crash — both stop, stay obstacles, are
+cleared after 120 s (secondary crashes emerge); a crawl scrape stays a graze. Through-lane
+bodies may straddle a 1.5 m shoulder; the centre leaving the pavement at speed is a
+run-off-road crash. (5) Near-crash = TTC < 1.5 s with hysteresis. Crash log carries
+type / speed / glance state / heading. T10 added: elevated inattention (3× glance rate,
+2 s mean, 60% shoulder checks) — crashes must EMERGE. No crash rule anywhere.
+**Changed:** params (`attention` block; per-archetype loomGain/glanceRate/glanceMean/
+checkProb; IDEAL_CONTROL scalars so the ideal point draws no random numbers), agent,
+world (crash(), scheduleGlance(), reflex rewrite, edges/shoulder, contact→crash),
+observer (crashed = magenta), runner (safety stats in samples), smoketest (T8 bound
+re-baselined to the lane line; T9 asserts crash-free at defaults + conservation incl.
+cleared; T10 new).
+**State:** smoke 10/10 PASS + VALIDATION PASS (D unchanged from v0.4.1: 1410 veh/h/ln,
+0 rear-ends, 1 crawl graze). T1-T7 byte-identical to v0.4.1. T9 (3 lanes, k=15, human
+defaults, 300 s): 0 crashes, 0 near-crashes, 4773 glances. **T10: 164 crashes of 216
+vehicles — rear-end 60, sideswipe 28, departure 8, secondary 18; 89 of 164 while
+glancing; near-crashes 287 (4.8 per rear-end).** T8 wander SD 0.337 m, max excursion
+1.36 m (a corner over the line in the long-glance tail). **Calibration gap, honest:** a
+600-s T9 probe gave 1 departure ≈ 4×10⁻⁴ per veh·km vs the empirical ~10⁻⁶; near-crash
+rate is likewise orders of magnitude high. The missing mechanism is peripheral lane
+awareness during glances (drivers glancing at the radio still make gross corrections);
+the attention parameters are placeholders from naturalistic ranges, not fitted. Browser
+UNVERIFIED.
+**Next:** Stage 11 remainder — PET for crossing paths, near-crash scaling with density
+and tReact (the done-when's third clause), peripheral lane keeping during glances. Then
+Stage 12 calibration: crash-type shares, near-crash:crash ratio, rates per veh·km (long
+runs; the runner now carries the safety stats).
+
+
 ## 2026-09-22 — v0.4.1: rotated bodies, rear-pivot bicycle; repo published
 
 **Done:** bodies are rotated. `Vehicle.segments()` splits each body into short segments

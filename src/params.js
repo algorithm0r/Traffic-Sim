@@ -73,6 +73,23 @@ var PARAMETERS = {
     taperLen: 35,          // m over which an ending lane's pavement edge closes
   },
 
+  // --- attention & perception (Stage 11): the layer accidents come from ---
+  // Nothing here is a crash rule. Ground truth leaves the driver: the emergency brake
+  // is evidence accumulation on perceived looming (Markkula et al. 2016), eyes leave
+  // the road in glances (SHRP2 / Klauer et al.), the shoulder check can be skipped.
+  // Crashes are physical contacts that follow from those failure modes.
+  attention: {
+    loomLeak: 1.0,         // 1/s, looming evidence decays when the danger signal stops
+    glanceSigma: 0.5,      // lognormal σ of off-road glance duration
+    demandGain: 3.0,       // glance suppression per unit inverse-TTC (Fuller: task demand)
+    nearCrashTTC: 1.5,     // s, a near-crash event begins below this time-to-collision ...
+    nearCrashExit: 2.5,    // ... and ends above this (hysteresis)
+    crashSpeed: 3.0,       // m/s, contact with either body faster than this is a crash
+    incidentClear: 120,    // s a crashed vehicle sits as an obstacle before it is cleared
+    departSpeed: 8,        // m/s, leaving the pavement above this is a run-off-road crash
+    shoulder: 1.5,         // m of shoulder beyond each pavement edge a body may straddle
+  },
+
   // --- driver model shared constants (IDM + MOBIL) ---
   delta: 4,                // IDM acceleration exponent (Treiber et al. 2000)
   bMax: 9,                 // m/s^2 physical emergency-braking cap
@@ -123,33 +140,46 @@ var PARAMETERS = {
 //              pedal gets motorErr×20 in m/s^2
 //   laneTol — m from the lane LINE the driver tolerates; inside the comfort band there
 //             is NO lateral correction (satisficing lane keeping)
+// Attention & perception (Stage 11), each [mean, sd] per driver:
+//   loomGain — 1/s of looming evidence per unit of danger above the emergency threshold
+//              (brake onset 0.2-1 s after onset at realistic values; ∞ = same-tick reflex)
+//   glanceRate — off-road glances per minute (naturalistic ~4-8; mirrors, instruments)
+//   glanceMean — s mean glance duration (SHRP2: >2 s is the risky tail)
+//   checkProb — probability the shoulder is checked before a lateral move
 var ARCHETYPES = {
   aggressive: { share: 0.20, v0mult: [1.16, 0.05], T: [1.00, 0.10], a: [1.4, 0.10],
                 b: [2.1, 0.15], s0: [2.0, 0.20], len: 4.8, width: 1.8, politeness: 0.10,
                 bSafe: 5.0, exitPrep: 700,  truck: false,
                 tReact: [0.35, 0.08], percErr: [0.08, 0.02], motorErr: [0.0004, 0.00015],
-                laneTol: [0.25, 0.08] },
+                laneTol: [0.25, 0.08],
+                loomGain: [4.0, 1.0], glanceRate: [8, 2], glanceMean: [0.9, 0.2], checkProb: [0.95, 0.02] },
   normal:     { share: 0.50, v0mult: [1.04, 0.04], T: [1.45, 0.15], a: [1.0, 0.10],
                 b: [1.7, 0.15], s0: [2.5, 0.30], len: 4.8, width: 1.8, politeness: 0.35,
                 bSafe: 4.0, exitPrep: 1300, truck: false,
                 tReact: [0.50, 0.12], percErr: [0.08, 0.02], motorErr: [0.0004, 0.00015],
-                laneTol: [0.40, 0.10] },
+                laneTol: [0.40, 0.10],
+                loomGain: [3.0, 0.8], glanceRate: [6, 1.5], glanceMean: [0.8, 0.2], checkProb: [0.98, 0.01] },
   cautious:   { share: 0.20, v0mult: [0.94, 0.04], T: [1.85, 0.20], a: [0.8, 0.08],
                 b: [1.4, 0.12], s0: [3.0, 0.30], len: 4.8, width: 1.8, politeness: 0.60,
                 bSafe: 3.5, exitPrep: 2000, truck: false,
                 tReact: [0.70, 0.15], percErr: [0.08, 0.02], motorErr: [0.0004, 0.00015],
-                laneTol: [0.55, 0.10] },
+                laneTol: [0.55, 0.10],
+                loomGain: [2.5, 0.6], glanceRate: [4, 1], glanceMean: [0.7, 0.15], checkProb: [0.99, 0.01] },
   truck:      { share: 0.10, v0mult: [0.88, 0.03], T: [1.70, 0.15], a: [0.6, 0.06],
                 b: [1.2, 0.10], s0: [3.5, 0.30], len: 16,  width: 2.5, politeness: 0.40,
                 bSafe: 3.5, exitPrep: 1800, truck: true,
                 tReact: [0.55, 0.10], percErr: [0.07, 0.02], motorErr: [0.0003, 0.0001],
-                laneTol: [0.45, 0.10] },
+                laneTol: [0.45, 0.10],
+                loomGain: [3.0, 0.8], glanceRate: [5, 1.5], glanceMean: [0.8, 0.2], checkProb: [0.97, 0.02] },
 };
 
 // Overrides that recover the IDEAL controller (the v0.1/v0.2 validated behavior) —
 // applied by the test suites; experiments interpolate between this point and the
 // archetype values above.
-var IDEAL_CONTROL = { tReact: [0.05, 0], percErr: [0, 0], motorErr: [0, 0], laneTol: [1.5, 0] };
+// (attention values are scalars: a scalar draws no random number, which keeps the
+// ideal-point control suites byte-identical to v0.4)
+var IDEAL_CONTROL = { tReact: [0.05, 0], percErr: [0, 0], motorErr: [0, 0], laneTol: [1.5, 0],
+                      loomGain: 1e6, glanceRate: 0, glanceMean: 0.5, checkProb: 1 };
 
 // Schema drives the auto-generated control panel (ui.js). One entry per live-tunable.
 var PARAM_SCHEMA = [

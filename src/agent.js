@@ -27,6 +27,13 @@ var DriverProfile = class DriverProfile {
     this.percErr  = g(spec.percErr  || [0, 0],    0,    0.30);
     this.motorErr = g(spec.motorErr || [0, 0],    0,    0.08);
     this.laneTol  = g(spec.laneTol  || [1.5, 0],  0.05, 1.50);
+    // attention & perception (Stage 11) — ideal = (∞, 0, ·, 1). A scalar spec draws
+    // nothing (the ideal point must not shift the control suites' random streams).
+    const gs = (v, def, lo, hi) => v == null ? def : (typeof v === 'number' ? clamp(v, lo, hi) : g(v, lo, hi));
+    this.loomGain   = gs(spec.loomGain,   1e6, 0.1, 1e6);
+    this.glanceRate = gs(spec.glanceRate, 0,   0,   60) / 60;   // per second
+    this.glanceMean = gs(spec.glanceMean, 0.5, 0.1, 5);
+    this.checkProb  = gs(spec.checkProb,  1,   0,   1);
   }
 
   // desired speed tracks the live speed-limit slider
@@ -72,6 +79,17 @@ var Vehicle = class Vehicle {
     this.desireLane = null;
     this.signal = null;       // lane indicated (desire >= dSync, or committed)
     this.claimLane = null;    // lane others treat as mine (desire >= dCoop, or committed)
+
+    // --- attention & perception state (Stage 11) ---
+    this.loomA = 0;           // looming evidence accumulator; the brake fires at 1
+    this.gapErr = 0;          // perception error multipliers sampled at the last decision
+    this.closeErr = 0;
+    this.glanceUntil = -1;    // eyes off the road until this time
+    this.nextGlance = null;   // scheduled by the world on first sight
+    this.checked = true;      // shoulder checked for the current maneuver
+    this.crashed = false;     // post-crash: stopped, an obstacle, cleared later
+    this.crashT = 0;
+    this.inNearCrash = false; // TTC hysteresis for near-crash counting
   }
 
   // The rotated body (v0.4.1): (x, y) is the FRONT, the rear sits len·(cos ψ, sin ψ)

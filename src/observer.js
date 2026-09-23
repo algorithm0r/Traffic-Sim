@@ -99,7 +99,8 @@ var Observer = class Observer {
       const y = p.y + (bicycle ? veh.y * latScale : (veh.visLane + 0.5) * g.laneH);
       const len = Math.max(2.5, veh.len * g.pxm);
       const h = veh.p.truck ? 7 : 6;
-      ctx.fillStyle = P.colorMode === 'type'
+      ctx.fillStyle = veh.crashed ? '#ff2d6f'
+        : P.colorMode === 'type'
         ? ({ aggressive: '#ff7b72', normal: '#7fd1ff', cautious: '#d2a8ff', truck: '#e3b341' })[veh.p.name]
         : hsl(130 * clamp(veh.v / vmax, 0, 1), 75, 55);
       if (bicycle) {

@@ -205,23 +205,31 @@ point still evaluates desire every tick (8 neighbour scans → 4); smoke 35 s vs
 
 ### Stage 11 — Fallible perception: the layer accidents come from (goal 2)  [ ACTIVE ]
 Ground truth leaves the driver. No crash rule anywhere; crashes are physical overlaps.
-- [ ] **Looming accumulator** replaces the threshold reflex: brake response is evidence
-      accumulation on perceived looming (visual angle rate), kinematics-dependent, with a
-      per-driver gain/threshold. At the ideal point it recovers the current reflex.
-- [ ] **Attention:** off-road glances as a process (duration distribution from
-      naturalistic data; frequency from a Fuller-style task-demand/capability balance).
-      During a glance nothing is perceived, commands stay held, the accumulator does not
-      accumulate. Rear-ends emerge when a glance meets a lead braking event.
-- [ ] **Shoulder check as a glance** that can be skipped (per-driver probability), so
-      lateral clearance is *believed*, not known → sideswipes emerge.
-- [ ] **Post-crash state:** crashed vehicles stop and become obstacles → secondary crashes
-      emerge; incidents clear after a delay.
-- [ ] **Conflict metrics:** TTC, PET, DRAC per vehicle pair per tick; near-crash counts
-      (TTC < 1.5 s) as the abundant signal; crash log with type classification
-      (rear-end / sideswipe / lane-departure / merge).
+- [x] **Looming accumulator** replaces the threshold reflex: brake response is evidence
+      accumulation on perceived looming (required deceleration as perceived), with a
+      per-driver gain. At the ideal point it recovers the old reflex exactly (suites
+      byte-identical).
+- [x] **Attention:** off-road glances as a process (Poisson rate, lognormal duration,
+      suppressed by inverse-TTC task demand, begun only when the car is stable with the
+      wheel centred). During a glance nothing is perceived, commands stay held, the
+      accumulator does not accumulate. Rear-ends emerge when a glance meets a lead
+      braking event (T10: 60 of 164 crashes).
+- [ ] **Peripheral lane awareness during glances:** gross lane-position correction from
+      peripheral vision (the long-glance tail currently drifts a corner over the line at
+      ~1.3 m and produces departures ~400× the empirical rate).
+- [x] **Shoulder check as a glance** that can be skipped (per-driver probability, once per
+      maneuver), so lateral clearance is *believed*, not known → sideswipes emerge (T10: 28).
+- [x] **Post-crash state:** contacts above crawl speed stop both vehicles as obstacles →
+      secondary crashes emerge (T10: 18); incidents clear after 120 s. Shoulder + run-off-road.
+- [x] **Conflict metrics (partial):** TTC with hysteresis → near-crash counts; DRAC is the
+      reflex's danger signal; crash log with type (rear-end / sideswipe / departure /
+      secondary / merge-involved), speed, glance state, heading.
+- [ ] PET for crossing paths (lane changes); near-crash scaling with density and tReact.
 **Done when:** at the ideal point the suite is unchanged; with realistic attention the
 model produces crashes at a nonzero rate whose type mix is plausible, and near-crash
-counts scale with density and tReact in the expected direction.
+counts scale with density and tReact in the expected direction. Status 2026-09-23: first
+two clauses ✓ (suites unchanged; T10 mix rear-end 60 / sideswipe 28 / departure 8 /
+secondary 18, near-crashes 4.8 per rear-end); scaling check pending.
 
 ### Stage 12 — Safety validation  [ PLANNED ]
 - [ ] Crash-type proportions vs NHTSA/GES freeway shares; near-crash : crash ratio vs
