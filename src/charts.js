@@ -53,7 +53,8 @@ var SafetyPanel = class SafetyPanel {
     ctx.fillText('safety — per 1000 veh·km (SHRP2 all-severity: crash 0.027, near 0.048)', this.x + 4, this.y + 12);
     const line = (i, txt, color) => { ctx.fillStyle = color || '#cdd2da'; ctx.fillText(txt, this.x + 4, this.y + 28 + i * 14); };
     line(0, `exposure ${km.toFixed(1)} veh·km   glances ${s.glances}   peripheral corrections ${s.periphCorrections}`);
-    line(1, `near-crashes ${s.nearCrashes}  → ${per(s.nearCrashes).toFixed(2)}`, per(s.nearCrashes) > 0.1 ? '#ffd479' : '#cdd2da');
+    line(1, `near-crashes ${s.nearCrashes} (TTC<1.5 s) → ${per(s.nearCrashes).toFixed(2)}   with ≥0.5 g braking ${s.evasiveNear} → ${per(s.evasiveNear).toFixed(3)}`,
+         per(s.nearCrashes) > 0.1 ? '#ffd479' : '#cdd2da');
     line(2, `crashes ${s.crashes / 2 | 0} events → ${per(s.crashes / 2).toFixed(3)}   secondary ${s.secondary}   cleared ${s.cleared}`,
          s.crashes ? '#ff7b72' : '#cdd2da');
     line(3, `PET mean ${(s.petSum / Math.max(s.petN, 1)).toFixed(2)} s   lane-change conflicts (<1 s) ${s.lcConflicts}/${s.petN}`);

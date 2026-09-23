@@ -88,6 +88,7 @@ var PARAMETERS = {
     demandGain: 3.0,       // glance suppression per unit inverse-TTC (Fuller: task demand)
     nearCrashTTC: 1.5,     // s, a near-crash event begins below this time-to-collision ...
     nearCrashExit: 2.5,    // ... and ends above this (hysteresis)
+    evasiveDecel: 4.9,     // m/s² (0.5 g): a near-crash with braking this hard is SHRP2's definition
     crashSpeed: 3.0,       // m/s, contact with either body faster than this is a crash
     incidentClear: 120,    // s a crashed vehicle sits as an obstacle before it is cleared
     departSpeed: 8,        // m/s, leaving the pavement above this is a run-off-road crash

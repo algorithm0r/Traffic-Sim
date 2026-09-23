@@ -40,7 +40,7 @@ var World = class World {
       sideswipes: 0, aborts: 0, expiries: 0, changeDurSum: 0, changeDurN: 0,   // bicycle body only
       // safety (Stage 11): crashes are contacts at speed; near-crashes are TTC events
       crashes: 0, rearEnds: 0, sideswipeCrashes: 0, departures: 0, secondary: 0,
-      mergeCrashes: 0, cleared: 0, nearCrashes: 0, glances: 0, periphCorrections: 0,
+      mergeCrashes: 0, cleared: 0, nearCrashes: 0, evasiveNear: 0, glances: 0, periphCorrections: 0,
       petSum: 0, petN: 0, lcConflicts: 0,   // post-encroachment time at lane-change completion
     };
 
@@ -1176,8 +1176,14 @@ var World = class World {
         // near-crash bookkeeping (ground truth, for the safety metrics)
         const ttc = closingT > 0 ? gapT / closingT : Infinity;
         veh.ttc = ttc;   // for the safety view
-        if (!veh.inNearCrash && ttc < A.nearCrashTTC) { veh.inNearCrash = true; this.stats.nearCrashes++; }
-        else if (veh.inNearCrash && ttc > A.nearCrashExit) veh.inNearCrash = false;
+        if (!veh.inNearCrash && ttc < A.nearCrashTTC) {
+          veh.inNearCrash = true; veh.nearEvasive = false; this.stats.nearCrashes++;
+        } else if (veh.inNearCrash && ttc > A.nearCrashExit) {
+          // SHRP2 counts a near-crash only with an evasive maneuver (≥0.5 g); the plain
+          // TTC count is the abundant, looser signal — both are kept
+          if (veh.nearEvasive) this.stats.evasiveNear++;
+          veh.inNearCrash = false;
+        }
       } else { veh.inNearCrash = false; veh.ttc = Infinity; }
       {
         const wall = this.wallDist(veh);
@@ -1248,6 +1254,7 @@ var World = class World {
       // decisions the car runs open-loop — that's the intermittent controller)
       veh.delta = clamp(veh.heldDelta, -P.steering.maxSteer, P.steering.maxSteer);
 
+      if (veh.inNearCrash && veh.acc <= -P.attention.evasiveDecel) veh.nearEvasive = true;
       const vNew = Math.max(0, veh.v + veh.acc * dt);
       const adv = (veh.v + vNew) / 2 * dt;
       const oldX = veh.x, oldY = veh.y;

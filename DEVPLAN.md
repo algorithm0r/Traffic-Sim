@@ -255,9 +255,17 @@ and 5/6. Magnitudes ~100× empirical — Stage 12.
       registers (σ 0.5 → 0.3: 0.16); tightening the comfort band makes wander WORSE
       (SD 0.33 → 0.41, the held-command overshoot T8 found); loomGain and checkProb do not
       register at this exposure. Defaults left alone — three events is no basis for tuning.
-- [ ] Long-exposure runs (≥10⁵ veh·km per setting, runner.mjs overnight) before any
-      default is moved; then the glance-duration distribution against Klauer/SHRP2
-      (share of glances > 2 s) rather than against the near-crash rate directly
+- [x] Long-exposure runs (25 seeds × 900 s ≈ 10⁵ veh·km per variant, results/calib.md):
+      crash rate at defaults 0.010 (1 event; SHRP2 0.027 — consistent); near-crash rate
+      0.52, of which 0.43 with ≥0.5 g braking — **~9× SHRP2 on SHRP2's own definition**,
+      a real excess (±14%). Glance tail σ 0.5 → 0.3 halves it; tighter comfort band ×8
+      worse; loomGain, checkProb no help. Defaults not moved.
+- [ ] Match the glance-duration distribution to the naturalistic baseline (Klauer 2006 /
+      SHRP2: share of glances > 2 s in ordinary driving) and let the near-crash rate follow;
+      then the same for wander SD (0.32 here vs empirical 0.2-0.3)
+- [ ] Why does a HIGHER shoulder-check probability raise near-crashes 2.4× (128 vs 53)?
+      Hypothesis: checked changers hold mid-change beside a body, and their target-lane
+      followers log TTC episodes. A mechanism worth a trace.
 - [ ] PET-conflict share (~26% of changes < 1 s) vs NGSIM lane-change headways
 **Done when:** the safety indicators land in defensible bands and the sweeps are written up.
 
