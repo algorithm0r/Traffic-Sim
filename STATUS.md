@@ -39,8 +39,8 @@ runs and the figure pending)
   depart 2, secondary 12
 
 ## Branches / tags
-- `main` tracks origin/main; tags v0.1-v0.4.1. Stage 11 complete + phase diagram is a
-  v0.5 candidate (Chris's call)
+- `main` tracks origin/main; tags v0.1-v0.4.1, **v0.5** (2026-09-23: Stage 11 complete,
+  phase diagram, browser + DB verified)
 
 ## Open
 - Near-crash rate ~9× SHRP2 at defaults (robust); the lever is the glance-duration tail —
