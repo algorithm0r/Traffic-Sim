@@ -43,7 +43,7 @@ function run(overrides, ticks, human) {
 {
   console.log('T1  homogeneous ring vs analytic IDM equilibrium');
   const world = run({
-    laneCount: 1, numInterchanges: 0, initialDensity: 15, loopLength: 3000,
+    bodyModel: 'lane', laneCount: 1, numInterchanges: 0, initialDensity: 15, loopLength: 3000,
     profileVariability: 0, forceArchetype: 'normal', truckFraction: 0, seed: 42,
   }, 12000); // 600 s
   const n = world.vehicles.length;
@@ -62,7 +62,7 @@ function run(overrides, ticks, human) {
 {
   console.log('T2  heterogeneous 3-lane ring');
   const world = run({
-    laneCount: 3, numInterchanges: 0, initialDensity: 20, loopLength: 4000,
+    bodyModel: 'lane', laneCount: 3, numInterchanges: 0, initialDensity: 20, loopLength: 4000,
     profileVariability: 1, truckFraction: 0.1, seed: 7,
   }, 6000); // 300 s
   const m = world.metrics();
@@ -89,7 +89,7 @@ function run(overrides, ticks, human) {
 {
   console.log('T3  interchanges (spawn/merge/exit)');
   const world = run({
-    laneCount: 3, numInterchanges: 3, initialDensity: 12, loopLength: 6000,
+    bodyModel: 'lane', laneCount: 3, numInterchanges: 3, initialDensity: 12, loopLength: 6000,
     demand: 800, profileVariability: 1, truckFraction: 0.1, seed: 11,
   }, 12000); // 600 s
   const m = world.metrics();
@@ -286,7 +286,7 @@ function run(overrides, ticks, human) {
 // --- T4: renderer draws without exceptions against a recording stub ctx -----------------
 {
   console.log('T4  renderer smoke (stub canvas)');
-  Object.assign(P, JSON.parse(JSON.stringify(BASE)), { seed: 3 });
+  Object.assign(P, JSON.parse(JSON.stringify(BASE)), { seed: 3, bodyModel: 'lane' });
   const world = new ctx.World();
   const engine = new ctx.GameEngine();
   for (let t = 1; t <= 400; t++) { engine.tick = t; world.update(engine); }

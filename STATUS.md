@@ -20,8 +20,9 @@ runs and the figure pending)
   mode, reaction-time × and glance-rate × sliders, Drivers human/ideal toggle.
 - smoke 10/10 PASS + VALIDATION PASS + SWEEP PASS @ v0.4.1-6-g43e9462 (2026-09-23)
 - Published: github.com/algorithm0r/Traffic-Sim; Pages at https://algorithm0r.github.io/Traffic-Sim/
-- Browser view UNVERIFIED by eye since the truck fix (Playwright cannot launch here);
-  DB path UNVERIFIED
+- Browser: Chris eyeballed the safety views, rotated bodies and merging 2026-09-23 —
+  "looking great". Bicycle body is now the DEFAULT (suites pin 'lane' for the 1D
+  controls). DB path UNVERIFIED
 
 ## Metrics
 - Controls unchanged: FD ≈1% of analytic; capacity 1836; waves 13 km/h; ring embodiment

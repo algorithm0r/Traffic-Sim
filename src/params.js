@@ -18,7 +18,7 @@ var PARAMETERS = {
   // 'bicycle' — kinematic bicycle body: continuous (x, y, heading), IDM+MOBIL decisions
   //             executed via a steering cascade (highway-env architecture). Same brain,
   //             different embodiment — the whole point is the controlled comparison.
-  bodyModel: 'lane',
+  bodyModel: 'bicycle',    // default since 2026-09-23; the suites pin 'lane' for the 1D controls
   steering: {
     tauLat: 0.6,           // s, lateral-position P-control time constant
     tauHeading: 0.25,      // s, heading P-control time constant

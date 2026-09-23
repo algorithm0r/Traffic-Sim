@@ -36,7 +36,8 @@ function check(label, cond, detail) {
 }
 
 function fresh(overrides) {
-  Object.assign(P, JSON.parse(JSON.stringify(BASE)), overrides);
+  // the 1D lane body is the validated control: A-C run on it whatever the default is
+  Object.assign(P, JSON.parse(JSON.stringify(BASE)), { bodyModel: 'lane' }, overrides);
   Object.assign(ctx.ARCHETYPES, JSON.parse(JSON.stringify(BASE_ARCH)));
   // validation experiments are CONTROL runs: ideal-controller point (v0.3)
   for (const k of Object.keys(ctx.ARCHETYPES)) {

@@ -29,8 +29,9 @@ could not launch here; the stub-canvas T4 covers the draw paths.
 (layout, toggles), params (idealDrivers, tReactX, glanceX, schema), agent (multipliers
 apply to new drivers), world (veh.ttc), smoketest T4 (panel draws), README, DEVPLAN.
 **State:** smoke 10/10 PASS (ideal suites unchanged: the multipliers default to 1 and the
-toggle to false). Phase and calibration outputs committed under results/. Browser still
-UNVERIFIED by eye.
+toggle to false). Phase and calibration outputs committed under results/. Browser
+verified by Chris ("looking great"); bicycle body made the default, suites pin 'lane'
+for T1-T4 and validation A-C — all numbers identical.
 **Next:** long-exposure runs (≥10⁵ veh·km per setting) through runner.mjs before moving
 any attention default; glance-duration distribution vs Klauer/SHRP2; PET share vs NGSIM;
 then the phase diagram as a figure with multiple seeds per cell and the wave-onset
