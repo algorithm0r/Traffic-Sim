@@ -216,7 +216,12 @@ Ground truth leaves the driver. No crash rule anywhere; crashes are physical ove
       braking event (T10: 60 of 164 crashes).
 - [ ] **Peripheral lane awareness during glances:** gross lane-position correction from
       peripheral vision (the long-glance tail currently drifts a corner over the line at
-      ~1.3 m and produces departures ~400× the empirical rate).
+      ~1.3 m and produces departures ~400× the empirical rate). 2026-09-23: every
+      remaining human-mode contact is a glance meeting a slow convergence — this is the
+      lever.
+- [x] Looming evidence scales with visual-angle rate (Markkula: accumulation ∝ θ̇), so the
+      brake fires at once close in and slowly far out; glances begin only when nothing is
+      developing ahead.
 - [x] **Shoulder check as a glance** that can be skipped (per-driver probability, once per
       maneuver), so lateral clearance is *believed*, not known → sideswipes emerge (T10: 28).
 - [x] **Post-crash state:** contacts above crawl speed stop both vehicles as obstacles →

@@ -997,8 +997,18 @@ var World = class World {
         // straight, WHEEL CENTRED, not mid-maneuver. A held tire angle integrates heading
         // (0.01 rad at 29 m/s is 0.1 rad/s and 2.9 m/s² of felt lateral acceleration):
         // every logged departure was a glance begun with the wheel slightly turned.
+        // ... and nothing developing ahead: not closing on a leader inside ~7 s of TTC
+        // (every crawl bump in the dense human probe was a follower glancing away
+        // while closing on a stopped queue, where looming is too weak to fire the
+        // emergency brake and only the postponed decision could have stopped it)
+        let closingRate = 0;
+        if (lead) {
+          const closing = veh.v - lead.v;
+          if (closing > 0) closingRate = closing / Math.max(this.gapX(veh, lead), 0.1);
+        }
         const stable = !veh.changing && Math.abs(veh.psi) < 0.012 &&
-                       Math.abs(veh.heldDelta) < 0.001 && this.keepTarget(veh) == null;
+                       Math.abs(veh.heldDelta) < 0.001 && this.keepTarget(veh) == null &&
+                       closingRate < 0.15;
         if (!stable) veh.nextGlance = this.time + 0.5;
         else {
           const dur = veh.p.glanceMean *
@@ -1086,7 +1096,7 @@ var World = class World {
         // --- steering intent: maneuver → target center; ending lane → hug the closing
         //     edge but never leave the lane band uninvited; keeping → comfort band (no
         //     correction inside it). Lateral clearance gates lateral motion. ---
-        let yT;
+        let yT, gated = false;   // gated: the clearance limit binds → hold the FRONT
         if (veh.changing) yT = this.laneCenter(veh.targetLane);
         else {
           yT = this.keepTarget(veh);   // null = hands off inside the comfort band
@@ -1113,13 +1123,13 @@ var World = class World {
           if (allowed <= 0.02) {
             // blocked alongside: hold, and drop back to break the lockstep (the
             // zipper's other half — holding lateral alone re-gridlocked the loop)
-            yT = veh.y;
+            yT = veh.y; gated = true;
             if (veh.v > 0.3) cmd = Math.min(cmd, -0.5);
           } else if (Math.abs(yT - veh.y) > allowed) {
-            yT = veh.y + dir * allowed;
+            yT = veh.y + dir * allowed; gated = true;
           }
         }
-        veh.heldDelta = (yT != null ? veh.steerToward(yT, veh.p.tReact) : (veh.delta = 0))
+        veh.heldDelta = (yT != null ? veh.steerToward(yT, veh.p.tReact, gated) : (veh.delta = 0))
           + (veh.p.motorErr ? gaussFrom(this.rng, 0, veh.p.motorErr) : 0);
         veh.heldAcc = this.pedal(veh, cmd);
         this.scheduleDecision(veh);
@@ -1150,7 +1160,16 @@ var World = class World {
         const wall = this.wallDist(veh);
         if (wall < Infinity) D = Math.max(D, veh.v * veh.v / (2 * Math.max(wall, 0.1)) / P.emergencyDecel);
       }
-      const gainTerm = attending ? veh.p.loomGain * Math.max(D - 1, 0) : 0;
+      // evidence arrives at the rate the looming does (Markkula: accumulation ∝ θ̇):
+      // θ̇ = W·closing/gap² is overwhelming at a 1 m gap and faint at 40 m, so the same
+      // danger level fires the brake almost at once close in and slowly far out (a
+      // 14 m/s follower meeting a cut-in 1.2 m ahead waited half a second without this)
+      let salience = 1;
+      if (lead && D > 1) {
+        const gapT = Math.max(this.gapX(veh, lead), 0.1), closingT = Math.max(veh.v - lead.v, 0);
+        salience = Math.max(1, lead.width * closingT / (gapT * gapT) / A.loomRef);
+      }
+      const gainTerm = attending ? veh.p.loomGain * Math.max(D - 1, 0) * salience : 0;
       veh.loomA = clamp(veh.loomA + (gainTerm - A.loomLeak * veh.loomA) * dt, 0, 1.05);
       if (veh.loomA >= 1) {
         veh.acc = -P.bMax;
@@ -1161,7 +1180,7 @@ var World = class World {
       // drifting toward a body alongside → straighten now, drop back to break lockstep
       if (attending && Math.abs(veh.psi) > 0.02 &&
           this.lateralClearance(veh, Math.sign(veh.psi)) < lc.latClearance + 0.1) {
-        veh.heldDelta = veh.steerToward(veh.y, veh.p.tReact);   // reflex, noiseless
+        veh.heldDelta = veh.steerToward(veh.y, veh.p.tReact, true);   // reflex, noiseless
         if (veh.v > 0.3) veh.acc = Math.min(veh.acc, -0.5);
       }
 
@@ -1376,8 +1395,9 @@ var World = class World {
           if (!this.collisionLog) this.collisionLog = [];
           if (this.collisionLog.length < 40) {
             const st = (v) => ({ id: v.id, x: Math.round(v.x), y: +v.y.toFixed(1),
-              v: +v.v.toFixed(1), chg: v.changing ? v.startLane + '>' + v.targetLane : null,
-              ramp: !!v.onRamp, dest: v.destExit });
+              v: +v.v.toFixed(1), psi: +v.psi.toFixed(3), len: v.len,
+              chg: v.changing ? v.startLane + '>' + v.targetLane : null,
+              ramp: !!v.onRamp, glance: this.time < v.glanceUntil, dest: v.destExit });
             this.collisionLog.push({ t: +this.time.toFixed(1), f: st(f), l: st(l) });
           }
           // resolve: a rear-end backs the follower off; a graze only stops the closing

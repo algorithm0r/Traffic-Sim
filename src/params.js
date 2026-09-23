@@ -80,6 +80,7 @@ var PARAMETERS = {
   // Crashes are physical contacts that follow from those failure modes.
   attention: {
     loomLeak: 1.0,         // 1/s, looming evidence decays when the danger signal stops
+    loomRef: 0.02,         // rad/s of visual-angle rate at which evidence arrives at unit rate
     glanceSigma: 0.5,      // lognormal σ of off-road glance duration
     demandGain: 3.0,       // glance suppression per unit inverse-TTC (Fuller: task demand)
     nearCrashTTC: 1.5,     // s, a near-crash event begins below this time-to-collision ...

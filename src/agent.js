@@ -127,7 +127,11 @@ var Vehicle = class Vehicle {
   // horizon = hold time is dead-beat — an instant-gain command held open-loop
   // overshoots every interval and the driver oscillates forever (T8 caught it). At the
   // ideal point (horizon = dt) this collapses to the classic constants.
-  steerToward(yTarget, horizon) {
+  // `atFront`: reference the FRONT instead — used when the lateral-clearance gate binds
+  // (a body alongside): the cab is what must hold, and holding it means counter-steering
+  // while the rear still drifts along the heading; planning on the rear there let the
+  // front push past the clearance (T7 and the bottleneck grew sideswipes).
+  steerToward(yTarget, horizon, atFront) {
     const S = PARAMETERS.steering;
     const vSafe = Math.max(this.v, 1);
     // lateral horizon 4× the hold: one constant δ can't zero position error AND
@@ -135,7 +139,13 @@ var Vehicle = class Vehicle {
     // gains under held commands limit-cycle across the lane — approach gently instead
     const hLat = Math.max(S.tauLat, 4 * (horizon || 0));
     const hHead = Math.max(S.tauHeading, horizon || 0);
-    const vLat = clamp((yTarget - this.y) / hLat, -S.maxLatSpeed, S.maxLatSpeed);
+    // lateral error is measured at the REAR point — the one that rolls along the
+    // heading. The front swings by len·ψ̇ with every steering change, so a plan made
+    // for the front reverses it at each held-command boundary: a 16 m truck's cab
+    // saw-toothed across the lane at realistic hold times ("vibrating", 2026-09-23).
+    // The standard kinematic-bicycle controller references the rear axle for this.
+    const yRef = atFront ? this.y : this.y - this.len * Math.sin(this.psi);
+    const vLat = clamp((yTarget - yRef) / hLat, -S.maxLatSpeed, S.maxLatSpeed);
     // heading capped at ~11°: the lateral-speed cap alone let crawling drivers command
     // 30° (1.5 m/s lateral at 1 m/s forward) — real lane changes at walking pace are
     // shallow, and a 30° body sweeps most of a lane

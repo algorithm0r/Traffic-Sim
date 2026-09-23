@@ -3,6 +3,38 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-23 — trucks "vibrating" in lane changes: the cascade now references the rear
+
+**Done:** Chris saw big trucks saw-toothing across the lane in the browser. Trace (human
+truck, tReact 0.55 s): steering 72 → 18 → −40 → −0.5 → −19 mrad, the cab's lateral
+position actually reversing at each held-command boundary. Cause: v0.4.1's rear-pivot
+integration makes the FRONT swing by len·ψ̇ with every steering change, while the
+dead-beat plan in `steerToward` assumed the front rolls along the heading — true before
+the pivot. Fix: lateral error is measured at the REAR point (the one that rolls along the
+heading; the standard kinematic-bicycle reference), and at the FRONT only when the
+lateral-clearance gate binds — a cab that must hold beside a body is held by
+counter-steering, and planning on the rear there let the front push past the clearance
+(T7 and the bottleneck grew sideswipes before that gate). Trace after: 71 → −13 → −18 →
+−14 → −10 mrad, front monotonic; change duration 2.2 s. Also from the human-mode fallout:
+(a) glances now require nothing developing ahead (closing/gap < 0.15 ≈ TTC > 7 s) — every
+crawl bump in the dense human probe was a follower glancing away while closing on a
+stopped queue; (b) looming evidence arrives at the rate the looming does (× W·closing/gap²
+relative to `loomRef` 0.02 rad/s, Markkula's accumulation ∝ θ̇) — a 14 m/s follower
+meeting a cut-in 1.2 m ahead waited half a second without it. T10 rear-ends 35 → 23,
+secondary 17 → 5.
+**Changed:** agent (`steerToward(yTarget, horizon, atFront)`), world (gate sets
+`gated`, glance precondition, salience), params (`loomRef`), smoketest (T9 bounds crash
+EVENTS at one — see the comment: placeholder attention parameters produce one sideswipe
+event on this seed, two wandering drivers converging on a shared line mid-glance).
+**State:** smoke 10/10 PASS + VALIDATION PASS. Ideal-point controls unchanged (T1-T7
+identical; D2 bottleneck 1314 veh/h/ln, 0 grazes, ring deltas ≤3.5%). Human mode: dense
+probe rear contacts 7 → 3 (crawl bumps), bottleneck human 1242 veh/h/ln. Browser: Chris
+confirmed the vibration; the fix is not yet eyeballed.
+**Next:** unchanged — Stage 11 remainder (peripheral lane awareness during glances is now
+clearly the lever: every remaining human-mode contact is a glance meeting a slow
+convergence), scaling sweep, PET; Stage 12 calibration.
+
+
 ## 2026-09-23 — Stage 11 first pass: fallible perception — accidents emerge
 
 **Done:** ground truth leaves the driver. (1) The emergency reflex is evidence

@@ -13,7 +13,9 @@ lane awareness + PET pending)
 - Program goals (DEVPLAN, 2026-09-22): (1) cleaner, less rule-based 2D model; (2) traffic
   safety with EMERGENT accidents. OpenTrafficSim assessed: borrow structure, not substrate.
 - Bicycle body: ONE lane-change model (desire / relaxation / cooperation; the ramp is a
-  lane that ends), rotated bodies (segments along the heading), rear-pivot bicycle.
+  lane that ends), rotated bodies (segments along the heading), rear-pivot bicycle with
+  the steering cascade referenced to the rear (front when the clearance gate binds) —
+  the truck "vibration" Chris saw 2026-09-23 is fixed in trace, not yet eyeballed.
 - Perception is fallible (Stage 11): looming-evidence reflex with per-driver gain, off-road
   glances as a process (begun only when stable, wheel centred), shoulder check with a skip
   probability, post-crash obstacles, shoulder + run-off-road, near-crash (TTC) metric,
@@ -27,11 +29,13 @@ lane awareness + PET pending)
 ## Metrics
 - Controls unchanged: FD ≈1% of analytic; capacity 1836; waves 13 km/h; ring embodiment
   deltas ≤2.8%; D2 bottleneck 1410 veh/h/ln, 332 merges, 0 rear-ends, 1 crawl graze
-- Human defaults (T9: 3 lanes, k=15, 300 s): 0 crashes, 0 near-crashes, 4773 glances,
-  54.6 mph. 600-s probe: 1 departure ≈ 4×10⁻⁴ per veh·km (empirical ~10⁻⁶ — uncalibrated)
+- Human defaults (T9: 3 lanes, k=15, 300 s): 1 sideswipe event (two wanderers converging
+  on a line, one mid-glance), 2 near-crashes, 4663 glances, 51 mph — the check bounds
+  events at one; rates are ~400× empirical (uncalibrated; the lever is peripheral lane
+  awareness during glances)
 - Elevated inattention (T10: 3× glances, 2 s mean, 60% shoulder checks, k=18, 600 s):
-  164 crashes / 216 vehicles — rear-end 60, sideswipe 28, departure 8, secondary 18;
-  89 while glancing; near-crashes 287 (4.8 per rear-end)
+  104 crashes / 216 vehicles — rear-end 23, sideswipe 25, departure 14, secondary 5;
+  51 while glancing; near-crashes 280
 - T8 wander SD 0.337 m, max excursion 1.36 m (long-glance tail; centre stays in lane)
 
 ## Branches / tags
