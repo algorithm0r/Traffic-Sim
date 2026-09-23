@@ -266,13 +266,14 @@ function ticks(world, n) {
   check('bicycle bottleneck constraint expressed (mainline jam OR ramp metering)',
         bb.upV < bb.downV - 5 || bb.m.queueTotal > 100,
         `Δ=${(bb.downV - bb.upV).toFixed(1)} m/s, queue=${bb.m.queueTotal}`);
-  // KNOWN ISSUE (Stage 8): the bicycle body at this deliberately over-capacity config
-  // deadlocks in some realizations — three mutual-wait geometries were fixed, a fourth
-  // (standing queue whose head stalls on an undiagnosed constraint) remains. Reported,
-  // not asserted, so the suite stays meaningful for regressions elsewhere.
-  console.log(`      [report] bicycle discharge ${bb.downQ.toFixed(0)} vs lane ` +
-              `${bl.downQ.toFixed(0)} veh/h/ln (${(100 * bb.downQ / Math.max(bl.downQ, 1)).toFixed(0)}%)` +
-              (bb.downQ < 0.5 * bl.downQ ? '  ** DEADLOCK REALIZATION — Stage 8 item **' : ''));
+  // Stage 10: the deadlock class is gone (the fourth geometry was a merger that lost its
+  // lane identity when squeezed across the line; see DEVLOG 2026-09-22). Discharge is
+  // asserted against the lane body — below 80% would mean merging has regressed to
+  // metering the ramp instead of feeding the road.
+  check('bicycle bottleneck discharge ≥ 80% of the lane body (no deadlock realization)',
+        bb.downQ >= 0.8 * bl.downQ,
+        `bicycle ${bb.downQ.toFixed(0)} vs lane ${bl.downQ.toFixed(0)} veh/h/ln ` +
+        `(${(100 * bb.downQ / Math.max(bl.downQ, 1)).toFixed(0)}%)`);
 }
 
 console.log(failures === 0 ? 'VALIDATION PASS' : `VALIDATION FAIL (${failures} check(s))`);

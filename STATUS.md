@@ -1,36 +1,51 @@
 # Traffic Sim — STATUS
 *One screen. The current pulse. Overwritten, never appended — for history read DEVLOG.*
 
-**Updated:** 2026-07-11 (v0.3 close) — refreshed every session close; may carry unverified claims
+**Updated:** 2026-09-22 (Stage 10 close) — refreshed every session close; may carry unverified claims
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-Stage 9 `[ DONE ]` (human control loop, v0.3) / Stage 8 `[ PLANNED ]` (D2 deadlock + calibration)
+Stage 10 `[ DONE ]` (one lane-change model: desire / relaxation / cooperation — merging is
+lane changing) / Stage 11 `[ ACTIVE ]` (fallible perception: the layer accidents come from)
 
 ## State
-- THREE model layers: v0.1 lane body (1D control), v0.2 bicycle body (2D control), v0.3
-  human control loop (tReact / percErr / motorErr / laneTol + reflexes) — ideal point
-  recovers the controls; suites enforce it. Smoke 9/9 PASS @ HEAD (2026-07-11)
-- Lane wander EMERGES from mechanism: SD 0.33 m, max 0.72 m, in-lane, collision-free
-- Browser view UNVERIFIED (both bodies, wander); DB path UNVERIFIED
+- Program goals set 2026-09-22 (DEVPLAN): (1) cleaner, less rule-based 2D model; (2) traffic
+  safety with EMERGENT accidents. OpenTrafficSim assessed: borrow LMRS + Fuller structure,
+  not a substrate (no steering body, no crashes).
+- Bicycle body runs on ONE lane-change model: continuous desire per side (route + θ·MOBIL
+  gain + courtesy), thresholds dFree/dSync/dCoop, T(d) + relaxation (τ 25 s), kinematic
+  abort, forced regime on an ending lane, lateral clearance. The ramp is a lane that ends.
+  No ramp-specific decision branch remains; `onRamp` is a lane identity.
+- smoke 9/9 PASS + VALIDATION PASS @ v0.3-1-gc10a4ec-dirty (2026-09-22, pre-commit);
+  T1-T3 byte-identical to HEAD — the 1D control is untouched.
+- Browser view UNVERIFIED since 2026-07-12 (new merging not yet eyeballed); DB path UNVERIFIED
 
 ## Metrics
 - Controls unchanged: FD ≈1% of analytic; capacity 1836; waves 13 km/h; ring embodiment
-  deltas ≤2.5%; bottleneck discharge 103% (creep rule resolved the frequent deadlocks)
-- Human loop: wander SD 0.33 m; realistic 3-lane traffic 55 mph collision-free;
-  lane-change rate ~2.8× ideal under wander
+  deltas ≤1.4% (k=12/25/40)
+- D2 bottleneck (bicycle, seed 21): discharge 1422 veh/h/ln, 284 merges, breakdown Δ8.4
+  m/s, 0 rear-ends, 1 graze — HEAD deadlocked here (375). 116% of lane body (1230); 85% of
+  fleet ring capacity → 15% capacity drop (empirical 5-20%; lane body 27%). Seeds 22-24:
+  1416-1461, 0 collisions. Human mode 40 min: 1346, 0 collisions, queue 373.
+- T7: aborts 1 (was 40), expiries 0, missed exits 18 (was 77), ramp speed 13.5 m/s (was 11)
+- Smoke runtime 35 s (was 25 s): desire evaluated every tick at the ideal point
 
 ## Branches / tags
-- `main`; tags v0.1 (1D), v0.2 (bicycle), v0.3 pending final validation line
+- `main`; tags v0.1 (1D), v0.2 (bicycle), v0.3 (human loop). Stage 10 is a v0.4 candidate
+  (not tagged — Chris's call)
 
 ## Open
-- KNOWN ISSUE: D2 over-capacity bottleneck (bicycle) deadlocks stochastically — 4th
-  mutual-wait geometry undiagnosed; discharge check report-only (DEVPLAN Stage 8)
-- Browser visual check (Body toggle; wander is visible at defaults)
-- First experiment ready: tReact sweep → FD / wave onset / crash rate
+- KNOWN LIMITATION: bodies are unrotated boxes at the front's y; a turning truck's tail is
+  up to 4.7 m off → dense-jam grazes (T7dense probe: 48 grazes / 34 stuck at ideal; HEAD
+  35 stuck + 275 missed exits on the same config). Needs a rotated body in every query.
+- Trucks are now 2.5 m wide (were 1.8 since v0.2 — width was never copied)
+- Lane-change RATE is uncalibrated (T7 ~2300/10 min on 6 km × 3 lanes) — a Stage 12 target
+- Chris to eyeball the new merging in-browser (Body: bicycle)
 
 ## Next action
-Fresh session: D2 deadlock instrumentation. Then the tReact sweep experiment.
+Rotated body geometry (probe: 3 lanes, k=22, 1200 veh/h ramps, seed 5). Then Stage 11:
+looming accumulator replaces the threshold reflex; glances; shoulder check as a glance;
+post-crash state; TTC/PET conflict metrics.
 
 ## Blockers
 - none

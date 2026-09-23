@@ -16,16 +16,64 @@
   validation targets: the flow–density fundamental diagram, stop-and-go wave formation,
   capacity drop at onramps.
 
+## Program goals (from Chris, 2026-09-22)
+Two goals now steer everything after v0.3:
+
+1. **A cleaner 2D model, less rule-based.** The bicycle body accumulated special cases for
+   *merging* that ought to be consequences of *lane changing*: ramp-only speed matching,
+   ramp-only safety schedules, courtesy keyed on ramp presence, taper-squeeze bookkeeping,
+   straddler rules. The target: one lane-change model (continuous desire, LMRS-style) that
+   covers discretionary changes, exits, merges, and lane drops with the same mechanism;
+   the ramp is a lane that ends. Lateral interaction as clearance, not strip vetoes.
+2. **Traffic safety with emergent accidents.** An accident is by definition emergent, so
+   the model must not contain a crash rule. Instead the mechanisms that make crashes
+   impossible today — a ground-truth emergency reflex, a ground-truth shoulder check, a
+   hard safety criterion — become fallible perception processes (looming accumulator,
+   attention/glances, skipped checks). Crashes then follow from their failure modes, and
+   the validation targets are crash-type proportions and near-crash statistics.
+
+The two goals converge on one change: strip ground truth out of the reflex, the shoulder
+check and the claims, and replace them with a single perception-and-attention layer.
+
+### Where this sits against the field (assessed 2026-09-22)
+- **OpenTrafficSim** (TU Delft, Java, BSD-3) is the reference implementation of LMRS
+  (Schakel, Knoop & van Arem 2012: route/speed/keep/courtesy incentives, synchronization,
+  cooperation, relaxation) and of the Fuller task-demand human-factors framework (van Lint
+  & Calvert 2018; Calvert & van Lint 2020: task saturation endogenously changes estimation
+  error, reaction time, headway, speed; anticipation reliance). We borrow its *structure*
+  for Stage 10 (desire, thresholds, relaxation) and Stage 11 (task demand → perception
+  parameters). It is not a substrate: no steering body (lane path + lateral fraction), no
+  crashes (i4Driving, its safety project, describes extending "collision-free driving
+  models" and calls its state "from No to Maybe"), not embeddable in this stack.
+- **Nearest papers for goal 1:** Kanagaraj & Treiber 2018 (IDM longitudinal + lateral
+  relaxation + `pushlat`), Delpiano et al. 2020 (2D social-force for lane-disciplined
+  freeways). See NOTES-2d-models.md.
+- **Nearest models for goal 2:** Markkula et al. 2016 (brake response as evidence
+  accumulation on looming, not a fixed reaction time) and Markkula 2018 (intermittent
+  control — the architecture v0.3 already uses); SHRP2 / Klauer et al. on off-road
+  glances as the leading rear-end mechanism; Hamdar, Mahmassani & Treiber 2008/2015
+  (prospect-theory car-following where crashes emerge, NGSIM-calibrated); surrogate
+  safety measures (TTC, PET, DRAC) as the abundant signal since crashes are rare.
+- **The unoccupied square** remains: flow-capable × genuinely 2D (steered body) × human
+  drivers × emergent crashes. Nothing published sits there.
+
+### Control discipline
+- v0.1 (lane body, 1D) stays untouched as the validated control. Restructuring is 2D-only.
+- Every stage keeps `smoketest.mjs` and `validate.mjs` green, or re-baselines a check with
+  the reason recorded in the DEVLOG entry. The suite is the regression test that the
+  mechanisms the rule-based model discovered (DEVLOG 2026-07-11) survive the cleaner one.
+
 ## Built
 - Full IDM/MOBIL freeway on the looping road: 1-4 lanes, interchanges (onramp accel lanes
   with Poisson demand, destination exits with mandatory lane changes), four driver
   archetypes with literature-grounded spreads, stacked-leg renderer, live charts, headless
   runner + smoketest + validation suite. All headless checks PASS (see DEVLOG 2026-07-10).
+- Kinematic bicycle body (v0.2) and the human control loop (v0.3): see Stages 7 and 9.
 
 ## Not yet built
-- Browser visual confirmed by Chris (headless render check passes; eyes pending).
-- DB round-trip from this box (runner written; Server/Mongo not exercised this session).
-- Calibration refinement: merge-zone capacity drop is 26% vs the empirical 5-20%.
+- DB round-trip from this box (runner written; Server/Mongo not exercised).
+- Rotated body geometry (Stage 10 carry-over); browser check of the new merging.
+- Everything under Stages 11-13.
 
 ## Stages
 ### Stage 1 — IDM car-following on the ring  [ DONE ]
@@ -55,17 +103,17 @@ missed-exit rate stays low. ✓ 0 collisions, missed exits ≈ 5%
 **Done when:** profile heterogeneity shows in behavior (speed ordering, truck lane usage)
 under the smoketest. ✓
 
-### Stage 5 — Rendering, UI, live charts  [ TESTING ]
+### Stage 5 — Rendering, UI, live charts  [ DONE ]
 - [x] Observer: stacked horizontal legs, bottom wraps to top; right-side ramp stubs; vehicles
       colored by speed or type
 - [x] Control panel schema (lanes, density, demand, speed limit, trucks, speed)
 - [x] Live mean-speed graph + flow–density scatter; DataManager packets
 **Done when:** in-browser sim shows moving traffic on the stacked loop with working controls
-(visual check: Chris). — headless render check passes; awaiting eyes
+(visual check: Chris). ✓ confirmed in-browser 2026-07-12 (commit c10a4ec)
 
 ### Stage 6 — Validation vs expected output  [ DONE ]
 - [x] `validate.mjs`: fundamental diagram vs analytic IDM equilibrium; capacity + congested-
-      branch wave slope; stop-and-go wave speed; onramp breakdown experiment
+  branch wave slope; stop-and-go wave speed; onramp breakdown experiment
 **Done when:** all validation experiments land inside the expected bands from the traffic-flow
 literature (see Design spec) and are recorded in the DEVLOG. ✓ VALIDATION PASS
 
@@ -96,6 +144,8 @@ merging is expensive. Every 2D failure en route was a MISSING real-driver mechan
       pavement ignores phantom constraints after 3 s)
 - [x] Steering planned over the driver's own hold horizon (dead-beat heading, 4× lateral)
 - [x] T8 (wander emerges: SD 0.33 m, in-lane) + T9 (realistic traffic collision-free)
+- [x] 2026-07-12: wall-straddler deadlock fixed (gore roll + creep-past-stalled-encroacher);
+      acute D2 freeze gone; chronic human-mode merge congestion remains (→ Stage 10)
 **Done when:** wander emerges from mechanism (not injected noise) in the empirical band,
 controls regress clean at the ideal point. ✓
 **Findings:** wander is perception-threshold-driven, not motor-driven (execution noise at
@@ -106,15 +156,85 @@ ping-pongs edge to edge; corrections restore margin or drivers pile up bimodally
 edges. Lane changes run ~2.8× the ideal rate under wander (drivers near lines inherit
 neighbor-lane leaders) — a genuine micro→macro coupling to study.
 
-### Stage 8 — Calibration & realism refinements  [ PLANNED ]
-- [ ] **D2-bicycle stochastic deadlock (KNOWN ISSUE):** the over-capacity 2-lane
-      bottleneck still freezes in some realizations — three mutual-wait geometries fixed,
-      a fourth (standing queue, head stalls on an undiagnosed constraint) remains; the
-      anti-stalemate creep resolves most. Needs a fresh instrumented session
-      (space-time diagram, queue-head tracing). Discharge check is report-only until fixed.
-- [ ] Merge-zone discharge: raise toward the empirical 80-95% of capacity (candidates:
-      ramp-head patience/forced merge, gap anticipation, higher fleet `a`)
+### Stage 10 — One lane-change model: desire, relaxation, cooperation (goal 1)  [ DONE ]
+The ramp becomes a lane that ends. Every lateral decision runs through one continuous
+**desire** per side (LMRS structure, MOBIL brain kept as the voluntary incentive so the
+1D control comparison survives):
+- [x] **Road geometry:** through lanes 0..N-1 on the whole loop; each onramp is auxiliary
+      lane N over [gore, gore+len] with the pavement edge tapering over the next 35 m.
+      `outerEdge(x)`, `laneEndDist(veh)`; the lane end is an obstacle at v=0 (plain IDM),
+      not a special wall model. A non-changing vehicle stays inside its lane band, so the
+      taper can never squeeze it into an occupied slot — the squeeze/straddler block goes.
+- [x] **Route desire** (one function for merges, exits, lane drops): d = max(1 − x/(n·x0),
+      1 − t/(n·t0)) toward the required side, negative toward the wrong side. x0 = the
+      driver's `exitPrep` for exits (route knowledge), the LMRS 295 m for a lane end
+      (visible geometry); t0 = 43 s.
+- [x] **Voluntary desire** = MOBIL gain (politeness, keep-right) × `desirePerGain`, so the
+      classic 0.1 m/s² threshold maps onto d_free = 0.365; θ-weighted against route desire.
+      Courtesy = desire to vacate a lane someone with d ≥ d_coop wants, keyed on that
+      driver's actual desire, not on ramp presence.
+- [x] **Thresholds:** d_free 0.365 (gap acceptance with bAccept(d) from bSafe to
+      bAcceptMax and headway T(d)); d_sync 0.577 (signal on; synchronize speed to the
+      target-lane leader, decel bounded by b); d_coop 0.788 (the would-be follower
+      cooperates: follows the claimant with T(d), yield bounded by its politeness-scaled
+      comfortable braking). Replaces urgency, `forced`, bSafeM, ramp speed-matching, and
+      the 250-m courtesy rule.
+- [x] **Relaxation** (Laval & Leclercq 2008; LMRS τ = 25 s): changer and new follower
+      take the accepted headway and relax to their own T. This is the mechanism the
+      capacity-drop literature says merge discharge depends on.
+- [x] **Lateral clearance** replaces the strip veto: lateral motion allowed up to a safety
+      clearance from bodies alongside; drop back when none. Same function serves the
+      peripheral-vision reflex.
+- [x] Suites green (T5-T9, validation A-D) with re-baselines recorded; D2 discharge
+      measured against the old 1305 veh/h/ln and the empirical 80-95% band.
+- [ ] **Rotated body** (two segments or an OBB) in every geometric query: bodies are boxes
+      at the front's y, so a turning truck's tail is up to 4.7 m from where the model puts
+      it (dense-jam grazes; a single box spanning both ends made crawling cars phantom
+      walls). Probe: 3 lanes, k=22, 1200 veh/h ramps, seed 5 — 48 grazes / 34 stuck today.
+**Done when:** `world.js` has no ramp-specific decision branch — `onRamp` is only a lane
+identity — and the bicycle body passes the full suite with merge discharge at or above
+the v0.2 number. ✓ 2026-09-22: discharge 1422 veh/h/ln (v0.2: 1305; lane body 1230; HEAD
+deadlocked at 375), 0 rear-ends, 1 graze; suites PASS; T1-T3 byte-identical.
+**Findings:** the deadlock class was three mechanisms, none of them a "merge" rule — a
+merger losing its lane identity when squeezed across the line, an edge clamp halving the
+heading component steering away from the edge, and IDM saturating at exactly −bMax so the
+follower that most needed to see an entering body was the one that didn't. The 2D body's
+capacity drop lands at 15% (empirical 5-20%) where the 1D body's is 27% — relaxation +
+desire-scaled acceptance are what the capacity-drop literature says they are. The ideal
+point still evaluates desire every tick (8 neighbour scans → 4); smoke 35 s vs 25 s.
+
+### Stage 11 — Fallible perception: the layer accidents come from (goal 2)  [ ACTIVE ]
+Ground truth leaves the driver. No crash rule anywhere; crashes are physical overlaps.
+- [ ] **Looming accumulator** replaces the threshold reflex: brake response is evidence
+      accumulation on perceived looming (visual angle rate), kinematics-dependent, with a
+      per-driver gain/threshold. At the ideal point it recovers the current reflex.
+- [ ] **Attention:** off-road glances as a process (duration distribution from
+      naturalistic data; frequency from a Fuller-style task-demand/capability balance).
+      During a glance nothing is perceived, commands stay held, the accumulator does not
+      accumulate. Rear-ends emerge when a glance meets a lead braking event.
+- [ ] **Shoulder check as a glance** that can be skipped (per-driver probability), so
+      lateral clearance is *believed*, not known → sideswipes emerge.
+- [ ] **Post-crash state:** crashed vehicles stop and become obstacles → secondary crashes
+      emerge; incidents clear after a delay.
+- [ ] **Conflict metrics:** TTC, PET, DRAC per vehicle pair per tick; near-crash counts
+      (TTC < 1.5 s) as the abundant signal; crash log with type classification
+      (rear-end / sideswipe / lane-departure / merge).
+**Done when:** at the ideal point the suite is unchanged; with realistic attention the
+model produces crashes at a nonzero rate whose type mix is plausible, and near-crash
+counts scale with density and tReact in the expected direction.
+
+### Stage 12 — Safety validation  [ PLANNED ]
+- [ ] Crash-type proportions vs NHTSA/GES freeway shares; near-crash : crash ratio vs
+      SHRP2; crash rate per VMT order of magnitude (rarity is the challenge — expect to
+      lean on surrogates).
+- [ ] The tReact sweep experiment (micro reaction time → FD / wave onset / crash rate)
+      and its attention analogue (glance rate → crash rate).
+**Done when:** the safety indicators land in defensible bands and the sweeps are written up.
+
+### Stage 13 — Calibration & realism refinements  [ PLANNED ]
 - [ ] Open-boundary mode (independent upstream demand) for true capacity-discharge
       experiments alongside the closed loop
-- [ ] Per-segment lane counts / lane drops; deceleration lanes at exits
+- [ ] Lane drops and deceleration lanes at exits — both fall out of Stage 10's
+      lane-that-ends geometry
+- [ ] Merge-zone discharge into the empirical 80-95% band under the open-boundary test
 **Done when:** capacity drop lands in the 5-20% empirical band under an open-boundary test.

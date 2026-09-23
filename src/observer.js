@@ -108,8 +108,8 @@ var Observer = class Observer {
         ctx.translate(p.px - len / 2, y);
         ctx.rotate(ang);
         ctx.fillRect(-len / 2, -h / 2, len, h);
-        if (veh.changing) {                       // turn signal toward the target lane
-          const side = w.laneCenter(veh.targetLane) < veh.y ? -1 : 1;
+        if (veh.signal != null) {                 // turn signal toward the indicated lane
+          const side = w.laneCenter(veh.signal) < veh.y ? -1 : 1;
           ctx.fillStyle = '#ffd23f';
           ctx.fillRect(len / 2 - 2, side * (h / 2) - 1, 2, 2);
         }

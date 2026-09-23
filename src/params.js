@@ -47,6 +47,32 @@ var PARAMETERS = {
   emergencyDecel: 6.5,     // m/s^2 required-decel threshold that trips the reflex
   startleDelay: 0.15,      // s to the forced decision after an emergency
 
+  // --- lane-change desire (Stage 10): LMRS structure, MOBIL brain ---
+  // Every lateral decision of the bicycle body runs through one continuous desire per
+  // side (Schakel, Knoop & van Arem 2012). Route desire (a lane that ends, an exit) and
+  // voluntary desire (the MOBIL gain) sum; thresholds gate gap acceptance, signalling +
+  // synchronization, and cooperation by the would-be follower. The ramp is a lane that
+  // ends; merging is lane changing.
+  lc: {
+    dFree: 0.365,          // desire above which a change is attempted (gap acceptance)
+    dSync: 0.577,          // signal on; synchronize speed with the target-lane leader
+    dCoop: 0.788,          // the target-lane follower cooperates (opens a gap)
+    desirePerGain: 3.65,   // desire per m/s^2 of MOBIL gain: 0.1 m/s^2 (classic threshold) -> dFree
+    x0: 295,               // m, route look-ahead per required change for a VISIBLE lane end (LMRS)
+    t0: 43,                // s, time-based route look-ahead per required change (LMRS)
+    tMinFrac: 0.47,        // accepted headway at full desire as a fraction of T (LMRS 0.56/1.2)
+    tau: 25,               // s, relaxation of the accepted headway back to the driver's own T
+    bAcceptMax: 8,         // m/s^2 imposed on the new follower at full (forced) desire
+    followerReaction: 1.0, // s the new follower is assumed to coast before reacting to me
+    courtesy: 0.35,        // desire to vacate a lane per unit of a neighbour's desire for it
+                           // (sub-threshold alone: it tips a near-neutral driver, and never
+                           // itself triggers claims — at 0.6 a 2-lane jam chain-reacted)
+    coopRange: 120,        // m, a signal binds followers only within this range
+    signalExpire: 10,      // s, a maneuver that cannot complete is abandoned
+    latClearance: 0.4,     // m, lateral clearance kept from a body alongside
+    taperLen: 35,          // m over which an ending lane's pavement edge closes
+  },
+
   // --- driver model shared constants (IDM + MOBIL) ---
   delta: 4,                // IDM acceleration exponent (Treiber et al. 2000)
   bMax: 9,                 // m/s^2 physical emergency-braking cap

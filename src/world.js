@@ -37,7 +37,7 @@ var World = class World {
     this.stats = {
       laneChanges: 0, merges: 0, exited: 0, missedExits: 0, collisions: 0,
       spawned: 0, travelTimeSum: 0, travelTimeN: 0,
-      sideswipes: 0, aborts: 0, changeDurSum: 0, changeDurN: 0,   // bicycle body only
+      sideswipes: 0, aborts: 0, expiries: 0, changeDurSum: 0, changeDurN: 0,   // bicycle body only
     };
 
     this.seedMainline(P.initialDensity);
@@ -507,22 +507,82 @@ var World = class World {
   }
 
   // ==========================================================================
-  // Bicycle-body passes ('bicycle' mode). SAME decision models (IDM + MOBIL),
-  // executed through continuous (x, y, heading) with a steering cascade. Lane
-  // membership becomes geometry: a vehicle occupies whatever its body band
-  // overlaps, so a diagonal car constrains BOTH lanes for the whole maneuver.
-  // The 'lane' passes above are untouched — they are the validated control.
+  // Bicycle-body passes ('bicycle' mode). SAME car-following model (IDM), the MOBIL
+  // gain kept as the voluntary incentive, executed through continuous (x, y, heading)
+  // with a steering cascade. Lane membership is geometry: a vehicle occupies whatever
+  // its body band overlaps, so a diagonal car constrains BOTH lanes for the maneuver.
+  //
+  // Stage 10 — one lane-change model. Every lateral decision runs through a continuous
+  // DESIRE per side (LMRS: Schakel, Knoop & van Arem 2012):
+  //   desire = route desire (a lane that ends, an exit; negative toward the wrong side)
+  //          + θ · voluntary desire (MOBIL gain incl. politeness and keep-right; courtesy)
+  //   dFree: gap acceptance with desire-scaled headway T(d) and imposed decel bAccept(d)
+  //   dSync: signal on; synchronize speed with the target-lane leader
+  //   dCoop: the would-be follower cooperates — treats the claimant as its leader
+  // The onramp is auxiliary lane N that ends; its end is an obstacle at v = 0 (plain IDM).
+  // Merging, exiting and lane drops are the same mechanism. Accepted headways relax back
+  // to the driver's own T (Laval & Leclercq 2008). Lateral interaction is clearance, not
+  // a strip veto. The 'lane' passes above are untouched — they are the validated control.
   // ==========================================================================
 
   laneCenter(i) { return (i + 0.5) * PARAMETERS.laneWidth; }
   laneBand(i) { return [i * PARAMETERS.laneWidth, (i + 1) * PARAMETERS.laneWidth]; }
   roadWidth() { return this.laneCount * PARAMETERS.laneWidth; }
-  rampCenter() { return (this.laneCount + 0.5) * PARAMETERS.laneWidth; }
+  // lane identity: on an ending lane it is that lane until the body is physically on
+  // the through road (onRamp clears exactly then) — a squeezed straddler whose centre
+  // has crossed the line is still merging, not merged (the bottleneck trace caught a
+  // merger that "believed" it was in lane 1, read zero route desire, and sat at the
+  // pavement end forever)
   laneOf(veh) {
+    if (veh.onRamp) return this.laneCount;
     return clamp(Math.round(veh.y / PARAMETERS.laneWidth - 0.5), 0, this.laneCount - 1);
   }
   bandsOverlap(a, b, margin) {
     return a[0] < b[1] + (margin || 0) && b[0] < a[1] + (margin || 0);
+  }
+
+  // ---------- lane-that-ends geometry ----------
+
+  // pavement outer edge at x: the through road, plus an onramp's auxiliary lane along the
+  // ramp, closing linearly over taperLen past the lane end
+  outerEdge(x) {
+    const P = PARAMETERS, W = P.laneWidth, base = this.roadWidth();
+    let edge = base;
+    for (const r of this.onramps) {
+      const prog = this.distAhead(r.x, x);
+      if (prog <= r.len) return base + W;
+      if (prog < r.len + P.lc.taperLen) {
+        edge = Math.max(edge, base + W * (1 - (prog - r.len) / P.lc.taperLen));
+      }
+    }
+    return edge;
+  }
+
+  // the lane end as an obstacle: distance (m) until the pavement edge closes below the
+  // body's outer extent. Infinity once the body is inside the through road. Bodies that
+  // have slipped past their wall (clamped in by the edge) read 0, not a lap.
+  wallDist(veh) {
+    if (!veh.onRamp) return Infinity;
+    const P = PARAMETERS, r = veh.onRamp;
+    const yOuter = veh.y + veh.width / 2 + 0.05;
+    if (yOuter <= this.roadWidth()) return Infinity;
+    const frac = clamp((yOuter - this.roadWidth()) / P.laneWidth, 0, 1);
+    const xWall = (r.x + r.len + P.lc.taperLen * (1 - frac)) % this.L;
+    const d = this.distAhead(veh.x, xWall);
+    return d > r.len + P.lc.taperLen + 20 ? 0 : d;
+  }
+
+  // car-following against the lane end, once it binds (see decisionPass2D). A driver
+  // committed to the road with clear pavement beside is rolling in, not stopping: the
+  // closing edge carries the body onto the road (the gore is paint, not a barrier)
+  laneEndAcc(veh) {
+    const gap = this.wallDist(veh);
+    if (gap === Infinity) return Infinity;
+    if (veh.changing && veh.targetLane < this.laneCount &&
+        this.lateralClearance(veh, -1) >= PARAMETERS.lc.latClearance) return Infinity;
+    if (gap < veh.p.s0 + 2) return veh.idmAcc(Math.max(gap, 0.1), 0);   // holding at the end
+    const bReq = veh.v * veh.v / (2 * Math.max(gap - veh.p.s0, 0.1));
+    return bReq > veh.p.b ? -bReq : Infinity;   // exactly the stop that is required
   }
 
   sortAll() {
@@ -531,6 +591,8 @@ var World = class World {
     for (const r of this.onramps) r.count2D = 0;
     for (const veh of this.vehicles) if (veh.onRamp) veh.onRamp.count2D++;
   }
+
+  // ---------- perception geometry ----------
 
   // What I claim as mine while changing: my whole swept corridor (used as MY leader
   // query — I must not ram anything along the path I'm about to sweep).
@@ -541,27 +603,32 @@ var World = class World {
     return [Math.min(b[0], c - veh.width / 2), Math.max(b[1], c + veh.width / 2)];
   }
 
-  // What OTHERS see of o: its body, plus — if it's mid-change — its claimed slot in
-  // the target lane (turn-signal reading; kills the merger-invisibility window).
-  // Deliberately NOT the corridor in between: making the corridor visible to everyone
-  // had origin-lane followers braking for vehicles that were leaving, which interlocked
-  // into full-loop gridlock (validation D froze at 0 m/s). The body clears the origin
-  // lane naturally as it departs; the claim covers the destination.
+  // What OTHERS see of o: its body, plus — if it claims a lane (desire ≥ dCoop, or
+  // committed) — its slot in that lane (turn-signal reading). Deliberately NOT the
+  // corridor in between: making the corridor visible to everyone had origin-lane
+  // followers braking for vehicles that were leaving, which interlocked into full-loop
+  // gridlock (validation D froze at 0 m/s). The body clears the origin lane naturally.
   footprintOverlaps(o, band, margin) {
     if (this.bandsOverlap(o.band(), band, margin)) return true;
-    if (!o.changing) return false;
-    const c = this.laneCenter(o.targetLane);
+    if (o.claimLane == null) return false;
+    const c = this.laneCenter(o.claimLane);
     return this.bandsOverlap([c - o.width / 2, c + o.width / 2], band, margin);
   }
+
+  // how hard this driver will brake to let a claimant in: comfortable braking scaled by
+  // politeness (aggressive ≈ 0.4, normal ≈ 1.2, cautious ≈ 1.7 m/s²)
+  bCoopMax(veh) { return veh.p.b * 2 * veh.p.politeness; }
 
   // nearest vehicle ahead of `veh` (by REAR gap, not front position — fronts are what
   // the array sorts on, and a short car's nearer front can mask a long truck whose tail
   // is on your bumper; T7's one rear-end was exactly that) whose footprint overlaps
   // `band`. The 0.35 m margin keeps a changer sliding out of my lane registered as my
-  // leader until its corner has genuinely cleared.
+  // leader until its corner has genuinely cleared. Sets veh._leadClaim: the elected
+  // leader is a CLAIM (cooperation), not a body.
   scanAhead(veh, band, maxDist) {
+    const lc = PARAMETERS.lc;
     const n = this.all.length;
-    let best = null, bestGap = Infinity;
+    let best = null, bestGap = Infinity, bestClaim = false;
     for (let k = 1; k < n; k++) {
       const o = this.all[(veh.allIdx + k) % n];
       const d = this.distAhead(veh.x, o.x);
@@ -570,21 +637,33 @@ var World = class World {
       // past a stopped encroacher with tight-but-real clearance (the wall-straddler
       // deadlock: a frozen half-merged car pinned its neighbor via the margin forever)
       const m = (veh.v < 3 && o.v < 1) ? 0.08 : 0.35;
-      let hit = this.bandsOverlap(o.band(), band, m);
-      if (!hit && o.changing) {
-        // a CLAIM binds me only if yielding is comfortable and I'm in signal-reading
-        // range — a stopped merger's signal must not halt fast traffic 300 m back
-        // (rotating claims built a permanent phantom wall that gridlocked the loop)
-        const c = this.laneCenter(o.targetLane);
-        if (d < 120 && this.bandsOverlap([c - o.width / 2, c + o.width / 2], band, 0.35)) {
-          hit = veh.idmAcc(Math.max(d - o.len, 0.1), o.v) > -2.0;
+      let hit = this.bandsOverlap(o.band(), band, m), claim = false;
+      if (!hit && o.claimLane != null && d < lc.coopRange) {
+        // COOPERATION: a claim binds me only if yielding is within what I'd do for a
+        // stranger (politeness-scaled comfort) — a stopped merger's signal must not
+        // halt fast traffic 300 m back (rotating claims built a permanent phantom wall
+        // that gridlocked the loop). A committed changer is at least as visible as
+        // the old 2 m/s² signal-reading bound.
+        const c = this.laneCenter(o.claimLane);
+        if (this.bandsOverlap([c - o.width / 2, c + o.width / 2], band, 0.35)) {
+          // a committed changer visibly leaving its lane is a body entering mine: I brake
+          // as hard as it takes; a mere signal (or a stalled commit) binds only within
+          // what I'd comfortably do for a stranger
+          const moving = o.changing &&
+            Math.abs(o.y - this.laneCenter(o.startLane)) > 0.1 * PARAMETERS.laneWidth;
+          const bound = moving ? PARAMETERS.bMax : this.bCoopMax(veh);
+          // >= : IDM saturates at exactly -bMax, and the follower that needs all of it
+          // is precisely the one that must see the body entering its lane
+          hit = veh.idmAcc(Math.max(d - o.len, 0.1), o.v, this.headwayAt(veh, o.desire)) >= -bound;
+          claim = hit;
         }
       }
       if (hit) {
         const g = d - o.len;
-        if (g < bestGap) { bestGap = g; best = o; }
+        if (g < bestGap) { bestGap = g; best = o; bestClaim = claim; }
       }
     }
+    veh._leadClaim = bestClaim;
     return best;
   }
   scanBehind(veh, band, maxDist) {
@@ -597,6 +676,27 @@ var World = class World {
     return null;
   }
   gapX(f, l) { return this.distAhead(f.x, l.x) - l.len; }
+
+  // lateral clearance (m) from veh's near edge toward dir (+1 = toward the outer edge,
+  // -1 = toward the left edge) to the nearest body whose x-extent overlaps mine. This
+  // is the over-the-shoulder look: scanAhead/scanBehind order vehicles by front
+  // position, so a body ALONGSIDE is invisible to both (validation D's 93 sideswipes).
+  // Continuous clearance replaces the old strip veto: a driver may move up to the
+  // clearance, which is what dissolves the merger-alongside-blocker mutual wait.
+  lateralClearance(veh, dir) {
+    let best = Infinity;
+    const n = this.all.length;
+    const myEdge = veh.y + dir * veh.width / 2;
+    for (let k = 1; k <= 6 && k < n; k++) {
+      for (const o of [this.all[(veh.allIdx + k) % n], this.all[(veh.allIdx - k + n) % n]]) {
+        if (o === veh || o.done || !this.overlaps(veh, o)) continue;
+        if ((o.y - veh.y) * dir <= 0) continue;          // on my other side
+        const c = dir > 0 ? (o.y - o.width / 2) - myEdge : myEdge - (o.y + o.width / 2);
+        if (c < best) best = Math.max(c, 0);
+      }
+    }
+    return best;
+  }
 
   // someone nearby is already steering into `target` — accepting too would converge
   // (the 2D analogue of two 1D vehicles claiming the same gap; the collision log
@@ -617,66 +717,186 @@ var World = class World {
     return false;
   }
 
-  // MOBIL against a target lane, geometric edition. Returns true and starts the
-  // maneuver on acceptance. `forced` skips the incentive (mandatory at high urgency).
-  mobil2D(veh, target, bonus, bSafe, forced) {
-    if (this.convergenceConflict(veh, target)) return false;
+  // ---------- desire ----------
+
+  // accepted headway at desire d: from the driver's (possibly still relaxing) headway
+  // down to tMinFrac·T at full desire (LMRS)
+  headwayAt(veh, d) {
+    const lc = PARAMETERS.lc;
+    return Math.min(veh.Teff, veh.p.T * (1 - (1 - lc.tMinFrac) * clamp(d || 0, 0, 1)));
+  }
+  // deceleration a changer may impose (on itself and its new follower): the driver's
+  // bSafe, rising to the forced-merge bound with ROUTE desire only — what a driver is
+  // willing to impose grows with necessity (a lane that ends, an exit), never with want
+  // (a courtesy or speed change accepted at 6 m/s² put a 6 m/s car in front of a
+  // 20 m/s one — the probe's one rear-end)
+  bAcceptAt(veh, dRoute) {
+    const lc = PARAMETERS.lc;
+    const u = clamp((dRoute - lc.dFree) / (1 - lc.dFree), 0, 1);
+    return veh.p.bSafe + u * (lc.bAcceptMax - veh.p.bSafe);
+  }
+
+  // Route desire: ONE function for a lane that ends (the ramp), an exit, and — later — a
+  // lane drop. d = max(1 − x/(n·x0), 1 − t/(n·t0)) toward the required side for the n
+  // changes still needed; the opposite side reads the desire n+1 changes would carry,
+  // negated (each move away adds a required change). x0 is the driver's exitPrep for an
+  // exit (route knowledge) and the LMRS 295 m for a lane end (visible geometry).
+  routeDesire(veh) {
+    const lc = PARAMETERS.lc;
+    const lane = veh.changing ? veh.targetLane : veh.lane;
+    let dir = 0, n = 0, dist = Infinity, x0 = lc.x0;
+    if (veh.onRamp) {
+      dir = -1; n = lane - (this.laneCount - 1);
+      // past the lane end (in the taper) the need is total — never let it wrap the loop
+      dist = Math.max(veh.onRamp.len - this.distAhead(veh.onRamp.x, veh.x), 0);
+    } else if (veh.destExit != null) {
+      dir = 1; n = this.laneCount - 1 - lane;
+      dist = this.distAhead(veh.x, this.exits[veh.destExit].x);
+      x0 = veh.p.exitPrep;
+    }
+    if (!dir) return { dir: 0, d: 0, dOpp: 0 };
+    const t = dist / Math.max(veh.v, 1);
+    const f = (k) => k <= 0 ? 0
+      : clamp(Math.max(1 - dist / (k * x0), 1 - t / (k * lc.t0)), 0, 1);
+    return { dir, d: f(n), dOpp: -f(n + 1) };
+  }
+
+  // Courtesy: desire to vacate my lane for a neighbour who claims it (desire ≥ dCoop)
+  // and whom my body is in the way of — alongside or within a following gap. Keyed on
+  // the neighbour's actual desire, not on ramp presence.
+  courtesyDesire(veh) {
+    const lc = PARAMETERS.lc, out = { '-1': 0, '1': 0 };
+    const n = this.all.length;
+    for (let k = 1; k <= 8 && k < n; k++) {
+      for (const o of [this.all[(veh.allIdx + k) % n], this.all[(veh.allIdx - k + n) % n]]) {
+        if (o === veh || o.done || o.claimLane !== veh.lane || o.desire < lc.dCoop) continue;
+        const dx = Math.min(this.distAhead(veh.x, o.x), this.distAhead(o.x, veh.x));
+        if (dx > 40) continue;
+        const away = o.lane > veh.lane ? -1 : 1;
+        out[away] = Math.max(out[away], lc.courtesy * o.desire);
+      }
+    }
+    return out;
+  }
+
+  // MOBIL gain (m/s²) of moving into `target`: own advantage + politeness-weighted effect
+  // on both followers + keep-right bias. Returns null when a body alongside makes the
+  // move geometrically infeasible right now. Neighbours are returned for reuse.
+  mobilGain2D(veh, target, own) {
+    const P = PARAMETERS;
     const tb = this.laneBand(target);
-    const nl = this.scanAhead(veh, tb, 300);
-    const nf = this.scanBehind(veh, tb, 300);
-    if (nl && this.gapX(veh, nl) < 0.5) return false;
-    if (nf && nf !== nl && this.gapX(nf, veh) < 0.5) return false;
+    const nl = this.scanAhead(veh, tb, 300), nf = this.scanBehind(veh, tb, 300);
+    if (nl && this.gapX(veh, nl) < 0.5) return null;
+    if (nf && nf !== nl && this.gapX(nf, veh) < 0.5) return null;
     const myNew = veh.idmAcc(nl ? Math.max(this.gapX(veh, nl), 0.1) : null, nl ? nl.v : 0);
-    if (myNew < -bSafe) return false;
     let nfNew = 0, nfOld = 0;
     if (nf && nf !== nl) {
       nfNew = nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v);
-      if (nfNew < -bSafe) return false;
       nfOld = nf.idmAcc(nl ? Math.max(this.gapX(nf, nl), 0.1) : null, nl ? nl.v : 0);
     }
-    if (!forced) {
-      const ob = veh.band();
-      const ol = this.scanAhead(veh, ob, 300), of = this.scanBehind(veh, ob, 300);
-      const myOld = veh.idmAcc(ol ? Math.max(this.gapX(veh, ol), 0.1) : null, ol ? ol.v : 0);
-      let ofNew = 0, ofOld = 0;
-      if (of && of !== ol) {
-        ofOld = of.idmAcc(Math.max(this.gapX(of, veh), 0.1), veh.v);
-        ofNew = of.idmAcc(ol ? Math.max(this.gapX(of, ol), 0.1) : null, ol ? ol.v : 0);
-      }
-      const gain = (myNew - myOld)
-                 + veh.p.politeness * ((nfNew - nfOld) + (ofNew - ofOld)) + bonus;
-      if (gain <= PARAMETERS.mobilThreshold) return false;
+    const { ol, of } = own;
+    const myOld = veh.idmAcc(ol ? Math.max(this.gapX(veh, ol), 0.1) : null, ol ? ol.v : 0);
+    let ofNew = 0, ofOld = 0;
+    if (of && of !== ol) {
+      ofOld = of.idmAcc(Math.max(this.gapX(of, veh), 0.1), veh.v);
+      ofNew = of.idmAcc(ol ? Math.max(this.gapX(of, ol), 0.1) : null, ol ? ol.v : 0);
     }
-    veh.startLane = veh.onRamp ? this.laneCount - 1 : this.laneOf(veh);
+    const gain = (myNew - myOld)
+               + veh.p.politeness * ((nfNew - nfOld) + (ofNew - ofOld))
+               + (target > veh.lane ? P.keepRightBias : -P.keepRightBias);
+    return { gain, nl, nf };
+  }
+
+  // the decision: best side by total desire; sets desire / desireLane / signal / claim
+  updateDesire(veh) {
+    const lc = PARAMETERS.lc, right = this.laneCount - 1;
+    const route = this.routeDesire(veh);
+    const courtesy = this.courtesyDesire(veh);
+    let best = { d: 0, lane: null, g: null };
+    let own = null;   // own-lane neighbours, scanned once for both sides
+    for (const dir of [-1, 1]) {
+      const target = veh.lane + dir;
+      if (target < 0 || target > right) continue;   // auxiliary lanes are entered at the gore only
+      if (veh.p.truck && target === 0 && this.laneCount >= 3) continue;
+      const dR = route.dir === dir ? route.d : (route.dir === -dir ? route.dOpp : 0);
+      // cooling down: nothing voluntary can act, so evaluate the gain only where a route
+      // desire may need synchronizing (saves the neighbour scans)
+      let g = null;
+      if (!(veh.cooldown > 0 && dR <= 0)) {
+        if (!own) {
+          const ob = veh.band();
+          own = { ol: this.scanAhead(veh, ob, 300), of: this.scanBehind(veh, ob, 300) };
+        }
+        g = this.mobilGain2D(veh, target, own);
+      }
+      const dV = (g ? clamp(g.gain * lc.desirePerGain, -1, 1) : 0) + courtesy[String(dir)];
+      // θ: voluntary desire counts fully when it agrees with the route, fades out as an
+      // opposing route desire grows from dFree to dSync (LMRS)
+      const agree = dR === 0 || dV === 0 || Math.sign(dR) === Math.sign(dV);
+      const theta = agree ? 1 : clamp((lc.dSync - Math.abs(dR)) / (lc.dSync - lc.dFree), 0, 1);
+      const d = clamp(dR + theta * dV, -1, 1);
+      if (d > best.d) best = { d, lane: target, g, dR };
+    }
+    veh.desire = best.d;
+    veh.desireRoute = Math.max(best.dR || 0, 0);
+    veh.desireLane = best.lane;
+    veh._gain = best.g;
+    veh.signal = veh.changing ? veh.targetLane : (best.d >= lc.dSync ? best.lane : null);
+    veh.claimLane = veh.changing ? veh.targetLane : (best.d >= lc.dCoop ? best.lane : null);
+  }
+
+  // Gap acceptance at desire d, geometric edition. Starts the maneuver on acceptance:
+  // changer and new follower take the accepted headway (down to T(d)) and relax.
+  tryChange2D(veh, target, d, g) {
+    if (this.convergenceConflict(veh, target)) return false;
+    const nl = g ? g.nl : this.scanAhead(veh, this.laneBand(target), 300);
+    const nf = g ? g.nf : this.scanBehind(veh, this.laneBand(target), 300);
+    if (nl && this.gapX(veh, nl) < 0.5) return false;
+    if (nf && nf !== nl && this.gapX(nf, veh) < 0.5) return false;
+    const T = this.headwayAt(veh, d), b = this.bAcceptAt(veh, veh.desireRoute);
+    const myGap = nl ? Math.max(this.gapX(veh, nl), 0.1) : null;
+    if (veh.idmAcc(myGap, nl ? nl.v : 0, T) < -b) return false;
+    let nfT = null, nfGap = null;
+    if (nf && nf !== nl) {
+      nfT = this.headwayAt(nf, d);
+      nfGap = Math.max(this.gapX(nf, veh), 0.1);
+      if (nf.idmAcc(nfGap, veh.v, nfT) < -b) return false;
+      // and the braking the follower will actually need: now, and after the maneuver
+      // time if it does nothing while I get going (a stopped merger accepting an 80 m
+      // gap in 24 m/s traffic passed IDM's test and aborted two seconds later, 1800
+      // times in the bottleneck probe)
+      if (this.followerNeed(nf, veh, nl) > b) return false;
+    }
+    // relaxation: accept the headway you were given, down to the desire-scaled minimum
+    if (myGap != null) veh.Teff = clamp(myGap / Math.max(veh.v, 1), T, veh.Teff);
+    if (nfT != null) nf.Teff = clamp(nfGap / Math.max(nf.v, 1), nfT, nf.Teff);
+    veh.startLane = veh.lane;
     veh.targetLane = target;
     veh.changing = true;
     veh.changeStart = this.time;
-    veh.acceptedBSafe = bSafe;   // abort threshold must respect what was accepted
+    veh.acceptedBSafe = b;       // abort threshold must respect what was accepted
+    veh.desireAtStart = d;
+    veh.signal = target;
+    veh.claimLane = target;
     return true;
   }
 
-  // The over-the-shoulder glance: who occupies the strip I'm about to steer through,
-  // alongside my own body? scanAhead/scanBehind order vehicles by front position, so a
-  // body ALONGSIDE (x-extents overlapping) is invisible to both — the merge-zone crawl
-  // produced 93 sideswipes from exactly this blind spot (validation D). Returns the
-  // blocker (or null) so the caller can drop back behind it: holding lateral alone
-  // re-gridlocked the loop, because blocked vehicles creep in LOCKSTEP with their
-  // blockers and the strip never clears. Falling back is the zipper's other half.
-  alongsideBlocker(veh, targetY) {
-    const dir = Math.sign(targetY - veh.y);
-    if (!dir) return null;
-    const strip = dir > 0
-      ? [veh.y - veh.width / 2, veh.y + veh.width / 2 + 1.2]
-      : [veh.y - veh.width / 2 - 1.2, veh.y + veh.width / 2];
-    const n = this.all.length;
-    for (let k = 1; k <= 6 && k < n; k++) {
-      const cands = [this.all[(veh.allIdx + k) % n], this.all[(veh.allIdx - k + n) % n]];
-      for (const o of cands) {
-        if (o === veh || o.done) continue;
-        if (this.overlaps(veh, o) && this.bandsOverlap(o.band(), strip, 0)) return o;
-      }
-    }
-    return null;
+  // kinematic deceleration a follower needs to avoid a vehicle entering ahead of it:
+  // the larger of the requirement now and the requirement after a perception-reaction
+  // time in which the follower coasts (it reacts to the signal and the lateral motion
+  // well before the maneuver completes), with the entrant accelerating toward its new
+  // leader. Projecting over the whole maneuver instead rejected every 2-3 s lag gap
+  // and turned the over-capacity merge into pure ramp metering: no breakdown at all.
+  followerNeed(nf, veh, nl) {
+    const tau = PARAMETERS.lc.followerReaction;
+    const gap0 = Math.max(this.gapX(nf, veh), 0.1);
+    const req = (gap, closing) => closing > 0 ? closing * closing / (2 * Math.max(gap, 0.1)) : 0;
+    const aM = Math.max(0, Math.min(veh.p.a,
+      nl ? veh.idmAcc(Math.max(this.gapX(veh, nl), 0.1), nl.v) : veh.p.a));
+    const vM = veh.v + aM * tau;
+    const gap1 = gap0 + veh.v * tau + 0.5 * aM * tau * tau - nf.v * tau;
+    if (gap1 <= 0) return PARAMETERS.bMax + 1;
+    return Math.max(req(gap0, nf.v - veh.v), req(gap1, nf.v - vM));
   }
 
   // Satisficing lane keeping: inside the driver's comfort band (laneTol from each lane
@@ -697,135 +917,104 @@ var World = class World {
     return veh.y < lo ? lo + 0.4 * (c - lo) : hi - 0.4 * (hi - c);
   }
 
+  // ---------- passes ----------
+
   decisionPass2D(dt) {
-    const P = PARAMETERS;
-    const right = this.laneCount - 1;
+    const P = PARAMETERS, lc = P.lc;
     for (const veh of this.all) {
       if (veh.cooldown > 0) veh.cooldown -= dt;
       const decide = this.time >= veh.nextDecision;
 
       // leader scan every tick — the reflex layer needs ground truth continuously
       const lead = this.scanAhead(veh, this.sweptBand(veh), 400);
+      const leadClaim = veh._leadClaim;
 
       if (decide) {
         // --- decision layer: perceive (noisily), command (imperfectly), hold ---
         const sense = this.perceive(veh, lead ? Math.max(this.gapX(veh, lead), 0.1) : null,
                                     lead ? lead.v : 0);
-        let cmd = veh.idmAcc(sense.gap, sense.vLead);
+        let cmd = veh.idmAcc(sense.gap, sense.vLead,
+                             leadClaim ? this.headwayAt(veh, lead.desire) : null);
 
-        if (veh.onRamp) {
-          const ramp = veh.onRamp;
-          const prog = Math.min(this.distAhead(ramp.x, veh.x), ramp.len + 40);
-          const accWall = veh.idmAcc(Math.max(ramp.len + 40 - 0.5 - prog, 0.1), 0);
-          cmd = Math.min(cmd, accWall);
-          if (prog < ramp.len * 0.7) {
-            const ml = this.scanAhead(veh, this.laneBand(right), 300);
-            const accMain = veh.idmAcc(ml ? Math.max(this.gapX(veh, ml), 0.1) : null,
-                                       ml ? ml.v : 0);
-            cmd = Math.min(Math.max(accWall, accMain),
-                           lead ? veh.idmAcc(Math.max(this.gapX(veh, lead), 0.1), lead.v)
-                                : accMain);
-          }
-          if (!veh.changing) {
-            if (veh.cooldown <= 0) {
-              const bSafeM = 4 + clamp(prog / ramp.len, 0, 1) * 4;
-              this.mobil2D(veh, right, 0, bSafeM, true);
-            }
-          } else if (this.time - veh.changeStart > 10) {
+        // the lane end: a stopped obstacle, but one the driver expects to be gone from
+        // (Daamen et al. 2010: acceleration-lane drivers hold speed, most merge in the
+        // first half). It binds only once comfortable braking would no longer stop the
+        // car in time — then it is car-following against a wall like any other.
+        cmd = Math.min(cmd, this.laneEndAcc(veh));
+
+        // --- lateral decision: desire → accept / synchronize; committed → monitor ---
+        this.updateDesire(veh);
+        if (veh.changing) {
+          if (this.time - veh.changeStart > lc.signalExpire) {
             // signals expire: an unexpiring claim deadlocks the closed loop
             veh.changing = false;
+            veh.targetLane = this.laneOf(veh);
+            veh.lane = veh.targetLane;
             veh.cooldown = 2;
-            this.stats.aborts++;
+            this.stats.expiries++;
           } else {
-            // mid-merge monitor: committed like a mandatory change — bail only near
-            // the physical braking limit, and only while still mostly on the ramp
-            const nf = this.scanBehind(veh, this.laneBand(right), 200);
-            const stillOnRamp = veh.y + veh.width / 2 > this.roadWidth() + 0.1;
-            if (nf && stillOnRamp &&
-                nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v) < -(P.bMax - 0.5)) {
+            // abort only while still mostly in the origin lane, and only if the new
+            // follower would have to brake beyond what was accepted (+ boost) to AVOID
+            // me — the kinematic requirement (closing²/2·gap, the loom quantity the
+            // reflex uses), not IDM's gap preference: a stopped follower half a metre
+            // behind my slot in a jam wants space but faces no danger (the bottleneck
+            // probe logged 1149 aborts from exactly that). At full route desire the
+            // accepted bound is the physical limit: a forced merge commits.
+            const abortThresh = veh.acceptedBSafe + P.steering.abortBoost;
+            const tau2 = P.laneChangeCooldown * 0.6;
+            const nf = this.scanBehind(veh, this.laneBand(veh.targetLane), 200);
+            const progLat = Math.abs(veh.y - this.laneCenter(veh.startLane)) / P.laneWidth;
+            let bReq = 0;
+            if (nf) {
+              const gap = Math.max(this.gapX(nf, veh), 0.1), closing = nf.v - veh.v;
+              bReq = closing > 0 ? closing * closing / (2 * gap) : 0;
+            }
+            // no abort when there is nowhere to go back to: an ending lane makes the
+            // commit final (Hidas's forced regime) — the follower is the one who yields
+            const canReturn = !veh.onRamp ||
+              this.wallDist(veh) > veh.v * tau2 + 12;
+            if (nf && progLat < 0.4 && canReturn && bReq > abortThresh) {
+              if (this.onAbort) this.onAbort(veh, nf);
+              // the maneuver ends here; lane keeping brings the body back into its band
               veh.changing = false;
+              veh.lane = veh.targetLane = veh.startLane;
+              veh.signal = null; veh.claimLane = null;
               veh.cooldown = 1.5;
               this.stats.aborts++;
             }
           }
-        } else {
-          // exit urgency (identical brain to the lane body)
-          let urgency = 0, planningLeftBlock = false;
-          if (veh.destExit != null) {
-            const d = this.distAhead(veh.x, this.exits[veh.destExit].x);
-            urgency = clamp(1 - d / veh.p.exitPrep, 0, 1);
-            const lanesToCross = right - veh.lane;
-            planningLeftBlock = d < veh.p.exitPrep + 600 * lanesToCross + 400;
-            if (!veh.changing && veh.lane < right && urgency > 0.7 && veh.v > 8) {
-              cmd = Math.min(cmd, -0.6);   // gap-seek, floored — never park hunting
-            }
+        } else if (veh.desireLane != null) {
+          const d = veh.desire, target = veh.desireLane;
+          let started = false;
+          if (veh.cooldown <= 0 && d >= lc.dFree) {
+            started = this.tryChange2D(veh, target, d, veh._gain);
           }
-
-          if (veh.changing) {
-            if (this.time - veh.changeStart > 10) {
-              veh.changing = false;
-              veh.targetLane = this.laneOf(veh);
-              veh.lane = veh.targetLane;
-              veh.cooldown = 2;
-              this.stats.aborts++;
-            } else {
-              const abortThresh = veh.mandatory
-                ? P.bMax
-                : (veh.acceptedBSafe || veh.p.bSafe) + P.steering.abortBoost;
-              const nf = this.scanBehind(veh, this.laneBand(veh.targetLane), 200);
-              const progLat = Math.abs(veh.y - this.laneCenter(veh.startLane)) / P.laneWidth;
-              if (nf && progLat < 0.4 && veh.targetLane !== veh.startLane &&
-                  nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v) < -abortThresh) {
-                veh.targetLane = veh.startLane;
-                veh.cooldown = 1.5;
-                this.stats.aborts++;
-              }
-            }
-          } else if (veh.cooldown <= 0) {
-            const lane = veh.lane;
-            let done = false;
-            if (urgency > 0 && lane < right) {
-              const relax = veh.p.bSafe + urgency * (P.bMax - veh.p.bSafe) * 0.6;
-              if (this.mobil2D(veh, lane + 1, urgency * P.mandatoryBoost + P.keepRightBias,
-                               relax, urgency > 0.6)) {
-                veh.mandatory = true; done = true;
-              }
-            }
-            if (!done && urgency <= 0.3) {
-              let courtesy = 0;
-              if (lane === right && this.laneCount > 1) {
-                for (const ramp of this.onramps) {
-                  if (!ramp.count2D) continue;
-                  const d = this.distAhead(veh.x, (ramp.x + ramp.len) % this.L);
-                  if (d < ramp.len + 250) { courtesy = 1.2; break; }
-                }
-              }
-              if (!courtesy && lane < right &&
-                  this.mobil2D(veh, lane + 1, P.keepRightBias, veh.p.bSafe, false)) {
-                veh.mandatory = false; done = true;
-              }
-              const leftBanned = (veh.p.truck && lane === 1 && this.laneCount >= 3)
-                               || planningLeftBlock;
-              if (!done && lane > 0 && !leftBanned &&
-                  this.mobil2D(veh, lane - 1, courtesy - P.keepRightBias * (courtesy ? 0 : 1),
-                               veh.p.bSafe, false)) {
-                veh.mandatory = false;
-              }
+          if (!started && d >= lc.dSync) {
+            // synchronization: match the target-lane leader (with the desire-scaled
+            // headway), decelerating no harder than comfortable. This is what the old
+            // ramp-only "speed-match over the first 70%" rule was.
+            const nl = veh._gain ? veh._gain.nl : this.scanAhead(veh, this.laneBand(target), 300);
+            if (nl) {
+              const a = veh.idmAcc(Math.max(this.gapX(veh, nl), 0.1), nl.v, this.headwayAt(veh, d));
+              cmd = Math.min(cmd, Math.max(a, -veh.p.b));
             }
           }
         }
 
-        // --- steering intent: maneuver → target center; ramp → taper line; keeping →
-        //     comfort band (no correction inside it). Shoulder check gates lateral. ---
+        // --- steering intent: maneuver → target center; ending lane → hug the closing
+        //     edge but never leave the lane band uninvited; keeping → comfort band (no
+        //     correction inside it). Lateral clearance gates lateral motion. ---
         let yT;
         if (veh.changing) yT = this.laneCenter(veh.targetLane);
-        else if (veh.onRamp) {
-          const prog = this.distAhead(veh.onRamp.x, veh.x);
-          const outer = this.roadWidth() + P.laneWidth *
-            (prog <= veh.onRamp.len ? 1 : Math.max(0, 1 - (prog - veh.onRamp.len) / 35));
-          yT = Math.min(this.rampCenter(), outer - veh.width / 2 - 0.3);
-        } else {
+        else {
           yT = this.keepTarget(veh);   // null = hands off inside the comfort band
+          if (veh.onRamp) {
+            // hug the closing edge, but never leave the lane band uninvited — and never
+            // steer back OUT toward a closing edge once squeezed below the band's floor
+            const edgeT = this.outerEdge(veh.x) - veh.width / 2 - 0.3;
+            const floor = this.laneCount * P.laneWidth + veh.width / 2 + 0.05;
+            if ((yT == null ? veh.y : yT) > edgeT) yT = Math.max(edgeT, Math.min(floor, veh.y));
+          }
           // hands off position, not blind to heading: at highway speed even ~0.5° of
           // misalignment is 0.3 m/s of visible drift — straightened when noticed,
           // even while lane position feels fine (without this, heading random-walks
@@ -833,10 +1022,15 @@ var World = class World {
           if (yT == null && Math.abs(veh.psi) > 0.008) yT = veh.y;
         }
         if (yT != null && Math.abs(yT - veh.y) > 0.05) {
-          const blocker = this.alongsideBlocker(veh, yT);
-          if (blocker) {
+          const dir = Math.sign(yT - veh.y);
+          const allowed = this.lateralClearance(veh, dir) - lc.latClearance;
+          if (allowed <= 0.02) {
+            // blocked alongside: hold, and drop back to break the lockstep (the
+            // zipper's other half — holding lateral alone re-gridlocked the loop)
             yT = veh.y;
             if (veh.v > 0.3) cmd = Math.min(cmd, -0.5);
+          } else if (Math.abs(yT - veh.y) > allowed) {
+            yT = veh.y + dir * allowed;
           }
         }
         veh.heldDelta = (yT != null ? veh.steerToward(yT, veh.p.tReact) : (veh.delta = 0))
@@ -847,7 +1041,7 @@ var World = class World {
       veh.acc = veh.heldAcc;
 
       // --- reflex layer, every tick, beneath the slow loop ---
-      // longitudinal loom response (leader, and the pavement end for ramp vehicles)
+      // longitudinal loom response (leader, and the pavement end for an ending lane)
       let panic = false;
       if (lead) {
         const gap = this.gapX(veh, lead), closing = veh.v - lead.v;
@@ -856,10 +1050,9 @@ var World = class World {
           panic = true;
         }
       }
-      if (!panic && veh.onRamp) {
-        const gapWall = veh.onRamp.len + 40 - 0.5
-                      - Math.min(this.distAhead(veh.onRamp.x, veh.x), veh.onRamp.len + 40);
-        if (veh.v * veh.v / (2 * Math.max(gapWall, 0.1)) > P.emergencyDecel) panic = true;
+      if (!panic) {
+        const wall = this.wallDist(veh);
+        if (wall < Infinity && veh.v * veh.v / (2 * Math.max(wall, 0.1)) > P.emergencyDecel) panic = true;
       }
       if (panic) {
         veh.acc = -P.bMax;
@@ -868,12 +1061,10 @@ var World = class World {
       }
       // lateral reflex (peripheral vision is fast): drifting toward a body alongside →
       // straighten now, drop back to break lockstep
-      if (Math.abs(veh.psi) > 0.02) {
-        const blocker = this.alongsideBlocker(veh, veh.y + Math.sign(veh.psi) * 0.8);
-        if (blocker) {
-          veh.heldDelta = veh.steerToward(veh.y, veh.p.tReact);   // reflex, noiseless
-          if (veh.v > 0.3) veh.acc = Math.min(veh.acc, -0.5);
-        }
+      if (Math.abs(veh.psi) > 0.02 &&
+          this.lateralClearance(veh, Math.sign(veh.psi)) < lc.latClearance + 0.1) {
+        veh.heldDelta = veh.steerToward(veh.y, veh.p.tReact);   // reflex, noiseless
+        if (veh.v > 0.3) veh.acc = Math.min(veh.acc, -0.5);
       }
 
       // anti-stalemate creep: nothing PHYSICAL blocks a stopped car with clear pavement
@@ -885,19 +1076,19 @@ var World = class World {
         veh.stallT = (veh.stallT || 0) + dt;
         if (veh.stallT > 3 && veh.v < 2.5) {
           let clear = true;
+          const band = this.sweptBand(veh);
           const n2 = this.all.length;
           for (let k = 1; k < n2; k++) {
             const o = this.all[(veh.allIdx + k) % n2];
             const d = this.distAhead(veh.x, o.x);
             if (d > 8 + 20) break;   // 20 = max body length: fronts sort, rears don't
-            if (d - o.len < 8 && this.bandsOverlap(o.band(), veh.band(), 0.05)) {
+            if (d - o.len < 8 && this.bandsOverlap(o.band(), band, 0.05)) {
               clear = false; break;
             }
           }
-          if (clear && veh.onRamp) {
-            const gapWall = veh.onRamp.len + 40 - 0.5 - this.distAhead(veh.onRamp.x, veh.x);
-            if (gapWall < 8 && veh.y + veh.width / 2 > this.roadWidth() + 0.05) clear = false;
-          }
+          // at the pavement end, creeping is only sane if the road beside is clear
+          if (clear && this.wallDist(veh) < 1.0 &&
+              this.lateralClearance(veh, -1) < lc.latClearance) clear = false;
           if (clear) veh.acc = Math.max(veh.acc, 0.5);
         }
       } else veh.stallT = 0;
@@ -905,7 +1096,7 @@ var World = class World {
   }
 
   integratePass2D(dt) {
-    const P = PARAMETERS;
+    const P = PARAMETERS, lc = P.lc;
     const right = this.laneCount - 1;
     let removed = false;
     for (const veh of this.all) {
@@ -915,77 +1106,39 @@ var World = class World {
 
       const vNew = Math.max(0, veh.v + veh.acc * dt);
       const adv = (veh.v + vNew) / 2 * dt;
-      const oldX = veh.x;
+      const oldX = veh.x, oldY = veh.y;
       veh.psi = clamp(veh.psi + vNew * Math.tan(veh.delta) / veh.wheelbase * dt, -0.3, 0.3);
       veh.x = ((veh.x + adv * Math.cos(veh.psi)) % this.L + this.L) % this.L;
       veh.y += adv * Math.sin(veh.psi);
       veh.v = vNew;
 
-      // road edges (ramp band only exists along the ramp; its taper is applied below)
-      const hi = (veh.onRamp ? this.roadWidth() + P.laneWidth : this.roadWidth())
-               - veh.width / 2 - 0.05;
-      const lo = veh.width / 2 + 0.05;
-      if (veh.y < lo) { veh.y = lo; veh.psi = Math.max(veh.psi, 0) * 0.5; }
-      if (veh.y > hi) { veh.y = hi; veh.psi = Math.min(veh.psi, 0) * 0.5; }
+      // relaxation: an accepted short headway grows back to the driver's own
+      if (veh.Teff < veh.p.T) veh.Teff = Math.min(veh.p.T, veh.Teff + (veh.p.T - veh.Teff) * dt / lc.tau);
 
-      // ramp bookkeeping: the taper squeezes the outer pavement edge to zero over the
-      // 40 m past the acceleration lane; the wall is where the pavement ends; merged =
-      // body fully on the road
-      if (veh.onRamp) {
-        const ramp = veh.onRamp;
-        const prog = this.distAhead(ramp.x, veh.x);
-        // squeeze completes at +35 m but the wall sits at +40: a driver who parks s0
-        // short of the wall is already fully on the road (an s0-length cork of unmerged
-        // pavement at the taper end froze the entire loop — the probe caught it)
-        const outer = this.roadWidth() + P.laneWidth *
-          (prog <= ramp.len ? 1 : Math.max(0, 1 - (prog - ramp.len) / 35));
-        const yMax = outer - veh.width / 2 - 0.05;
-        if (veh.y > yMax) {
-          // never squeeze into an occupied slot — but only a conflict AHEAD stops the
-          // car. For a body abreast or behind, pulling forward INCREASES separation,
-          // so hold the squeeze and keep rolling (freezing for a car behind produced a
-          // two-vehicle mutual wait that deadlocked the loop: the probe caught merger
-          // #242 stopped for #148 whose own "leader" was #242).
-          let blockAhead = false, holdY = false;
-          const nAll = this.all.length;
-          for (let k = 1; k <= 6 && k < nAll; k++) {
-            for (const o of [this.all[(veh.allIdx + k) % nAll],
-                             this.all[(veh.allIdx - k + nAll) % nAll]]) {
-              if (o === veh || o.done) continue;
-              const dxF = this.distAhead(veh.x, o.x), dxB = this.distAhead(o.x, veh.x);
-              if (Math.min(dxF, dxB) > veh.len + o.len + 1) continue;
-              if (this.bandsOverlap(o.band(), [yMax - veh.width / 2, yMax + veh.width / 2], 0.1)) {
-                if (dxF < dxB) blockAhead = true;   // their front is ahead of mine
-                else holdY = true;
-              }
-            }
-            if (blockAhead) break;
-          }
-          // mirror check: don't descend in front of someone closing fast in the
-          // destination band (the taper squeeze is a lane change and owes the same
-          // courtesy — T7's last sideswipe was a merger dropping 0.2 m ahead of a
-          // +6.6 m/s approach)
-          if (!blockAhead && !holdY) {
-            const nf = this.scanBehind(veh, [yMax - veh.width / 2, yMax + veh.width / 2], 150);
-            if (nf && nf.idmAcc(Math.max(this.gapX(nf, veh), 0.1), veh.v) < -6) holdY = true;
-          }
-          if (blockAhead) { veh.x = oldX; veh.v = 0; }
-          else if (!holdY) { veh.y = yMax; veh.psi = Math.min(veh.psi, 0) * 0.5; }
-          // holdY: advance without squeezing further; the conflict clears as we pull away
+      // road edges: the left edge, and the pavement edge (which closes along a taper)
+      const lo = veh.width / 2 + 0.05;
+      if (veh.y < lo) { veh.y = lo; veh.psi = Math.max(veh.psi, 0); }
+      const hi = this.outerEdge(veh.x) - veh.width / 2 - 0.05;
+      if (veh.y > hi) {
+        // the closing edge pushes the body onto the road — a real driver crossing the
+        // gore paint — but only into clear pavement: with a body alongside, the pavement
+        // end is a stop, not a squeeze (never squeeze into an occupied slot)
+        const shift = veh.y - hi;
+        if (this.lateralClearance(veh, -1) >= shift + 0.1) {
+          // kill only the heading INTO the edge: a driver steering away from it keeps
+          // that heading (halving it pinned committed mergers against the gore, unable
+          // to turn onto the road — the bottleneck trace)
+          veh.y = hi; veh.psi = Math.min(veh.psi, 0);
+        } else {
+          veh.x = oldX; veh.y = oldY; veh.v = 0;
         }
-        if (prog >= ramp.len + 40 - 0.5 && prog < ramp.len + 90) {
-          veh.x = (ramp.x + ramp.len + 40 - 0.5) % this.L;
-          if (veh.y + veh.width / 2 > this.roadWidth()) {
-            // pavement ends, but it isn't a cliff: a straddler whose CENTER is on the
-            // road may roll at walking pace along the gore while the squeeze finishes
-            // (hard v=0 froze half-merged cars "both on and off the freeway" forever)
-            veh.v = Math.min(veh.v, veh.y < this.roadWidth() ? 0.8 : 0);
-          }
-        }
-        if (veh.y + veh.width / 2 <= this.roadWidth() + 0.2) {
-          veh.onRamp = null;      // merged enough: ≤0.2 m overhang finishes on the road
-          this.stats.merges++;
-        }
+      }
+
+      // an ending lane is left the moment the body is on the through road: merged
+      if (veh.onRamp && veh.y + veh.width / 2 <= this.roadWidth() + 0.2) {
+        veh.onRamp = null;
+        if (!veh.changing) veh.lane = right;
+        this.stats.merges++;
       }
 
       // maneuver completion (tolerances sized for motor noise: held steering error
@@ -994,7 +1147,8 @@ var World = class World {
           Math.abs(veh.psi) < 0.1) {
         veh.changing = false;
         veh.lane = veh.targetLane;
-        veh.cooldown = P.laneChangeCooldown * (veh.mandatory ? 0.5 : 1);
+        veh.signal = null; veh.claimLane = null;
+        veh.cooldown = P.laneChangeCooldown * (veh.desireAtStart >= lc.dSync ? 0.5 : 1);
         if (veh.targetLane !== veh.startLane) {
           this.stats.laneChanges++;
           this.stats.changeDurSum += this.time - veh.changeStart;
@@ -1042,10 +1196,10 @@ var World = class World {
       const vEntry = rear && rearProg < 40
         ? Math.min(12, rear.v + Math.sqrt(2 * prof.b * Math.max(rearProg - rear.len - prof.s0, 0)))
         : 12;
-      const veh = new Vehicle(this.nextId++, ramp.x, this.laneCount - 1, vEntry, prof,
+      // the auxiliary lane is lane N: the vehicle is an ordinary vehicle in a lane that ends
+      const veh = new Vehicle(this.nextId++, ramp.x, this.laneCount, vEntry, prof,
                               this.sampleDest(ramp.x), this.time);
       veh.onRamp = ramp;
-      veh.y = this.rampCenter();
       this.vehicles.push(veh);
       veh.allIdx = 0;   // harmless placeholder until next sortAll
     }
@@ -1054,6 +1208,9 @@ var World = class World {
   collisionPass2D() {
     const n = this.all.length;
     if (n < 2) return;
+    if (this.contacts) {   // a pair that has separated may collide again as a new event
+      for (const [k, t] of this.contacts) if (this.time - t > 0.5) this.contacts.delete(k);
+    }
     for (let i = 0; i < n; i++) {
       const f = this.all[i];
       if (f.done) continue;
@@ -1066,7 +1223,15 @@ var World = class World {
         if (rearGap < 0 && this.bandsOverlap(f.band(), l.band(), -0.05)) {
           const latOverlap = Math.min(f.band()[1], l.band()[1])
                            - Math.max(f.band()[0], l.band()[0]);
-          if (latOverlap > Math.min(f.width, l.width) * 0.6) this.stats.collisions++;
+          const rearEnd = latOverlap > Math.min(f.width, l.width) * 0.6;
+          // one EVENT per pair in contact (a stopped pair touching by 5 cm was logged
+          // every tick — 116 "sideswipes" that were one graze)
+          const key = f.id < l.id ? f.id + ':' + l.id : l.id + ':' + f.id;
+          if (!this.contacts) this.contacts = new Map();
+          const fresh = !this.contacts.has(key);
+          this.contacts.set(key, this.time);
+          if (!fresh) continue;
+          if (rearEnd) this.stats.collisions++;
           else this.stats.sideswipes++;
           if (!this.collisionLog) this.collisionLog = [];
           if (this.collisionLog.length < 40) {
@@ -1075,7 +1240,10 @@ var World = class World {
               ramp: !!v.onRamp, dest: v.destExit });
             this.collisionLog.push({ t: +this.time.toFixed(1), f: st(f), l: st(l) });
           }
-          f.x = ((l.x - l.len - 0.3) % this.L + this.L) % this.L;
+          // resolve: a rear-end backs the follower off; a graze only stops the closing
+          // (backing a grazed car up teleported it into ITS follower — a phantom
+          // rear-end the bottleneck probe logged)
+          if (rearEnd) f.x = ((l.x - l.len - 0.3) % this.L + this.L) % this.L;
           f.v = Math.min(f.v, l.v);
         }
       }

@@ -17,6 +17,7 @@ var DriverProfile = class DriverProfile {
     this.b      = g(spec.b,      0.80, 3.00);   // comfortable decel — braking anticipation
     this.s0     = g(spec.s0,     1.00, 5.00);   // standstill gap (m)
     this.len = spec.len;
+    this.width = spec.width || 1.8;             // m (trucks 2.5 — was never copied before Stage 10)
     this.politeness = spec.politeness;          // MOBIL p
     this.bSafe = spec.bSafe;                    // decel this driver will impose on others
     this.exitPrep = spec.exitPrep * (variability > 0 ? (0.8 + 0.4 * rng()) : 1);
@@ -64,9 +65,22 @@ var Vehicle = class Vehicle {
     this.changing = false;    // mid-maneuver flag
     this.changeStart = 0;     // sim time the current maneuver began
     this.startLane = lane;    // for aborts
+
+    // --- lane-change desire state (Stage 10; bicycle body) ---
+    this.Teff = profile.T;    // effective time headway: accepted at a change, relaxes to p.T
+    this.desire = 0;          // 0..1 toward desireLane (the best side this decision)
+    this.desireLane = null;
+    this.signal = null;       // lane indicated (desire >= dSync, or committed)
+    this.claimLane = null;    // lane others treat as mine (desire >= dCoop, or committed)
   }
 
-  // lateral body interval [lo, hi] — what "occupying a lane" means for the bicycle body
+  // lateral body interval [lo, hi] — what "occupying a lane" means for the bicycle body.
+  // KNOWN APPROXIMATION: the box sits at the FRONT's y with no rotation. The rear is
+  // really len·sin(ψ) to the side (a 16 m truck at 0.3 rad: 4.7 m), so merging trucks'
+  // tails can pass through cars alongside in dense jams (T7dense probe, DEVLOG
+  // 2026-09-22). One box spanning both ends was tried and made it worse: cars crawl
+  // at 17° in jams and became phantom walls. The fix is a rotated body (two segments
+  // or an OBB) in every geometric query — Stage 10 follow-up.
   band() { return [this.y - this.width / 2, this.y + this.width / 2]; }
 
   // Steering cascade (highway-env architecture): lateral-position P-control produces a
@@ -95,11 +109,14 @@ var Vehicle = class Vehicle {
 
   // IDM acceleration for gap s (m, bumper to bumper) to a leader at speed vL.
   // s == null means free road. Result is capped at the physical braking limit.
-  idmAcc(s, vL) {
+  // T overrides the headway (desire-scaled evaluations); default is the effective
+  // headway, which equals p.T except while relaxing after an accepted short gap.
+  idmAcc(s, vL, T) {
     const p = this.p, v = this.v, v0 = p.desiredSpeed();
     const free = 1 - Math.pow(v / v0, PARAMETERS.delta);
     if (s == null) return p.a * free;
-    const sStar = p.s0 + Math.max(0, v * p.T + v * (v - vL) / (2 * Math.sqrt(p.a * p.b)));
+    const Th = T != null ? T : this.Teff;
+    const sStar = p.s0 + Math.max(0, v * Th + v * (v - vL) / (2 * Math.sqrt(p.a * p.b)));
     const acc = p.a * (free - (sStar / Math.max(s, 0.1)) * (sStar / Math.max(s, 0.1)));
     return Math.max(acc, -PARAMETERS.bMax);
   }

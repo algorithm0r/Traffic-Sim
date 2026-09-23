@@ -3,6 +3,55 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-22 — Stage 10: one lane-change model (desire, relaxation, cooperation); merging is lane changing
+
+**Done:** the bicycle body's ramp-specific rules (speed-match over 70% of the ramp, bSafe
+schedule, `forced` flag, 250-m courtesy, taper-squeeze bookkeeping, straddler roll) are
+replaced by one continuous **desire** per side, LMRS structure with the MOBIL gain kept as
+the voluntary incentive (Schakel, Knoop & van Arem 2012): route desire (a lane that ends,
+an exit — one function, `routeDesire`) + θ-weighted voluntary desire (MOBIL gain ×
+`desirePerGain`, courtesy keyed on a neighbour's actual desire). Thresholds dFree
+(acceptance with T(d) and bAccept from ROUTE desire only), dSync (signal + synchronize
+with the target-lane leader), dCoop (the would-be follower treats the claimant as leader,
+bounded by politeness-scaled comfort). The onramp is auxiliary lane N that ends
+(`outerEdge`, `wallDist`, `laneEndAcc`); the end binds only when comfortable braking no
+longer suffices (accel-lane drivers hold speed, Daamen 2010), and never for a committed
+merger with clear pavement beside (the gore is paint). Relaxation: changer and new follower
+accept the given headway down to T(d) and relax to their own T over τ = 25 s. Lateral
+clearance replaces the strip veto (`lateralClearance`). Abort is kinematic (closing²/2gap,
+the loom quantity), impossible on an ending lane (Hidas's forced regime). Gap acceptance
+projects the follower's need over a 1-s reaction (`followerNeed`). DEVPLAN rewritten with
+the two program goals (cleaner 2D / emergent accidents), the OTS assessment, Stages 10-13.
+**Changed:** params (`lc` block), agent (Teff, desire state, width copied — trucks were
+1.8 m wide since v0.2), world (bicycle section rewritten; lane body untouched), observer
+(signal-based indicator), validate (D2 discharge asserted ≥ 80% of lane body instead of
+report-only), DEVPLAN, STATUS. Harness: contact events counted once per pair; grazes no
+longer teleport the follower (phantom rear-ends).
+**State:** smoke 9/9 PASS + VALIDATION PASS @ v0.3-1-gc10a4ec-dirty (pre-commit). T1-T3
+byte-identical to HEAD (1D control intact). Rings across bodies within 1.4%. **D2 bottleneck
+(seed 21): HEAD deadlocks (375 veh/h/ln, 34 merges); now 1422 veh/h/ln, 284 merges, breakdown
+Δ8.4 m/s, 0 rear-ends, 1 graze** — 116% of the lane body (1230) and 85% of fleet ring
+capacity (1680): a 15% capacity drop, inside the empirical 5-20% band (the lane body's is
+27%). Seeds 22-24: 1416-1461, 0 collisions; human mode 40 min: 1346, 0 collisions, queue 373.
+T7: aborts 1 (was 40), expiries 0, missed exits 18 (was 77), mergers 13.5 m/s on the ramp
+(was 11.0). The deadlock class is gone: the fourth geometry was a merger that lost its lane
+identity when squeezed across the line (laneOf read y), read zero route desire, and sat at
+the pavement end; two more mechanisms were the edge clamp halving the heading component
+steering AWAY from the edge, and IDM saturating at exactly −bMax so the follower that most
+needed to see a body entering its lane was the one that didn't. Every fix was probe-driven
+(tick traces of one merger with neighbours). **Known limitation:** bodies are unrotated
+boxes at the front's y; a 16 m truck at 0.3 rad has its tail 4.7 m to the side, so in dense
+jams merging trucks' tails pass through cars alongside (T7dense probe: 48 grazes, 34 stuck
+at the ideal point — HEAD has 35 stuck and 275 missed exits on the same config, so not a
+regression; human mode 2.2 stuck vs HEAD 50). A single box spanning both ends was tried and
+made it worse (crawling cars at 17° became phantom walls). Smoke runtime 35 s (was 25 s).
+Browser view UNVERIFIED this session.
+**Next:** rotated body (two segments or OBB) in every geometric query — the T7dense config
+is the probe. Then Stage 11: the fallible perception layer (looming accumulator, glances,
+shoulder check as a glance, post-crash state, TTC/PET conflict metrics) — the layer
+accidents come from. Chris to eyeball the new merging in-browser (Body toggle).
+
+
 ## 2026-07-11 — v0.3: the human control loop (start of "our model")
 **Done:** drivers become intermittent, noisy, satisficing controllers. Four continuous
 per-driver parameters (tReact / percErr / motorErr / laneTol), ideal = a point in the
