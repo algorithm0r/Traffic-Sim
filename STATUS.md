@@ -18,7 +18,7 @@ Stage 11 `[ DONE ]` (fallible perception — accidents emerge) / Stage 12 `[ ACT
   ahead), peripheral lane keeping during glances, shoulder check with a skip probability,
   post-crash obstacles, shoulder + run-off-road, TTC near-crashes, PET at lane changes,
   typed crash log. No crash rule anywhere. Ideal point = v0.4.1 behaviour exactly.
-- smoke 10/10 PASS + VALIDATION PASS + SWEEP PASS @ v0.4.1-4 (2026-09-23, pre-commit)
+- smoke 10/10 PASS + VALIDATION PASS + SWEEP PASS @ v0.4.1-4-g81a70b0 (2026-09-23)
 - Published: github.com/algorithm0r/Traffic-Sim; Pages live at
   https://algorithm0r.github.io/Traffic-Sim/
 - Browser view: Chris saw the truck saw-tooth 2026-09-23 (fixed in trace); the fix and
