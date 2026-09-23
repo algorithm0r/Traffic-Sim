@@ -11,8 +11,12 @@ the shared engine v2.
   sim core via `vm` and writes self-describing packets to MongoDB through the research Server.
 - **Smoke test:** `node smoketest.mjs` — no DB, ~15 s; asserts conservation, collision-free
   running, the analytic IDM equilibrium, and renderer sanity.
-- **Validation:** `node validate.mjs` — no DB, ~1.5 min; fundamental diagram vs analytic IDM,
-  stop-and-go wave speed, onramp bottleneck breakdown, all against literature bands.
+- **Validation:** `node validate.mjs` — no DB, ~3 min; fundamental diagram vs analytic IDM,
+  stop-and-go wave speed, onramp bottleneck breakdown, embodiment head-to-head, all
+  against literature bands.
+- **Safety sweep:** `node sweep.mjs` — no DB, ~5 min; near-crash and crash rates per
+  1000 veh·km over density × reaction time × glance rate with human drivers.
+- **Live:** https://algorithm0r.github.io/Traffic-Sim/
 
 ## Layout
 - `src/` — sim core (`engine`, `params`, `world`, `agent`, `observer`, `datamanager`, `charts`,

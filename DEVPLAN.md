@@ -203,7 +203,7 @@ capacity drop lands at 15% (empirical 5-20%) where the 1D body's is 27% — rela
 desire-scaled acceptance are what the capacity-drop literature says they are. The ideal
 point still evaluates desire every tick (8 neighbour scans → 4); smoke 35 s vs 25 s.
 
-### Stage 11 — Fallible perception: the layer accidents come from (goal 2)  [ ACTIVE ]
+### Stage 11 — Fallible perception: the layer accidents come from (goal 2)  [ DONE ]
 Ground truth leaves the driver. No crash rule anywhere; crashes are physical overlaps.
 - [x] **Looming accumulator** replaces the threshold reflex: brake response is evidence
       accumulation on perceived looming (required deceleration as perceived), with a
@@ -214,11 +214,9 @@ Ground truth leaves the driver. No crash rule anywhere; crashes are physical ove
       wheel centred). During a glance nothing is perceived, commands stay held, the
       accumulator does not accumulate. Rear-ends emerge when a glance meets a lead
       braking event (T10: 60 of 164 crashes).
-- [ ] **Peripheral lane awareness during glances:** gross lane-position correction from
-      peripheral vision (the long-glance tail currently drifts a corner over the line at
-      ~1.3 m and produces departures ~400× the empirical rate). 2026-09-23: every
-      remaining human-mode contact is a glance meeting a slow convergence — this is the
-      lever.
+- [x] **Peripheral lane awareness during glances** (Summala 1996): coarse correction when
+      the body's edge nears a line, glance continuing, longitudinal still blind. Worst
+      excursion 1.33 → 0.92 m; T10 departures 14 → 2; dense-jam stuck 21 → 0.7.
 - [x] Looming evidence scales with visual-angle rate (Markkula: accumulation ∝ θ̇), so the
       brake fires at once close in and slowly far out; glances begin only when nothing is
       developing ahead.
@@ -229,19 +227,23 @@ Ground truth leaves the driver. No crash rule anywhere; crashes are physical ove
 - [x] **Conflict metrics (partial):** TTC with hysteresis → near-crash counts; DRAC is the
       reflex's danger signal; crash log with type (rear-end / sideswipe / departure /
       secondary / merge-involved), speed, glance state, heading.
-- [ ] PET for crossing paths (lane changes); near-crash scaling with density and tReact.
+- [x] PET at lane-change completion; `sweep.mjs` — near-crash rate rises with density
+      (6/6) and tReact (5/6). Finding: slow reactors at k=25 collapse the ring.
 **Done when:** at the ideal point the suite is unchanged; with realistic attention the
 model produces crashes at a nonzero rate whose type mix is plausible, and near-crash
-counts scale with density and tReact in the expected direction. Status 2026-09-23: first
-two clauses ✓ (suites unchanged; T10 mix rear-end 60 / sideswipe 28 / departure 8 /
-secondary 18, near-crashes 4.8 per rear-end); scaling check pending.
+counts scale with density and tReact in the expected direction. ✓ 2026-09-23: suites
+unchanged; T10 mix rear-end 42 / sideswipe 19 / departure 2 / secondary 12; sweep 6/6
+and 5/6. Magnitudes ~100× empirical — Stage 12.
 
-### Stage 12 — Safety validation  [ PLANNED ]
+### Stage 12 — Safety validation & calibration  [ ACTIVE ]
 - [ ] Crash-type proportions vs NHTSA/GES freeway shares; near-crash : crash ratio vs
       SHRP2; crash rate per VMT order of magnitude (rarity is the challenge — expect to
       lean on surrogates).
-- [ ] The tReact sweep experiment (micro reaction time → FD / wave onset / crash rate)
-      and its attention analogue (glance rate → crash rate).
+- [ ] The tReact × density phase diagram (sweep.mjs found the collapse at k=25, 1.6×
+      tReact): FD / wave onset / near-crash rate, multiple seeds, long runs via runner.mjs
+- [ ] Bring default-attention crash rates toward ~1.5 per million veh·km (candidates:
+      glance-duration tail, wander SD toward the empirical 0.2-0.3, checkProb, loomGain)
+      without touching the ideal point; PET-conflict share vs NGSIM lane-change headways
 **Done when:** the safety indicators land in defensible bands and the sweeps are written up.
 
 ### Stage 13 — Calibration & realism refinements  [ PLANNED ]

@@ -56,6 +56,7 @@ for (let r = 0; r < reps; r++) {
         crashes: m.stats.crashes, rearEnds: m.stats.rearEnds, sideswipeCrashes: m.stats.sideswipeCrashes,
         departures: m.stats.departures, secondary: m.stats.secondary,
         nearCrashes: m.stats.nearCrashes, glances: m.stats.glances,
+        lcConflicts: m.stats.lcConflicts, petMean: m.stats.petN ? m.stats.petSum / m.stats.petN : null,
       });
     }
   }

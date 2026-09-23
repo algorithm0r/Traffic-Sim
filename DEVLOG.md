@@ -3,6 +3,35 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-23 — Stage 11 complete: peripheral lane keeping, PET, the safety sweep
+
+**Done:** (1) Peripheral lane keeping during glances (Summala et al. 1996: peripheral
+vision keeps the lane, coarsely, and does not see the lead car brake): at the decision
+cadence, if the body's edge has come within `periphTol` (0.15 m) of a lane line, a
+correction is steered while the glance continues — longitudinal command held, no
+looming evidence. T8's worst excursion 1.33 → 0.92 m; T10 departures 14 → 2; the dense
+human probe's stuck count 21 → 0.7; T9 crash-free at 300 and 600 s. (2) PET at lane-change
+completion (new follower's time to the vacated slot); conflicts counted below 1 s.
+(3) `sweep.mjs`: near-crash and crash rates per 1000 veh·km over density {8,15,25} ×
+tReact {0.6,1,1.6}× × glance rate {1,3}×, human archetypes, 600 s. **Near-crash rate
+rises with density 6/6 and with tReact 5/6 — the done-when's third clause.** Finding:
+at k=25 with 1.6× tReact the ring COLLAPSES (27 mph, 160 near-crashes and 2.8 crashes
+per 1000 veh·km) where the same density with normal reactors is fluid at 43 mph — slow
+reaction time is a phase-transition trigger, not just a safety parameter. Under 3× glances
+the collapse comes earlier (k=25 at 1.0×: 20 mph, 84 near). Stage 11 done; Stage 12 active.
+**Changed:** params (`periphTol`, `petConflict`), world (peripheral block, `keepTarget`
+tolerance override, PET at completion, stats), runner (PET/conflicts in samples),
+smoketest (T9 reports periphCorrections/PET), new `sweep.mjs`, README.
+**State:** smoke 10/10 PASS + VALIDATION PASS + SWEEP PASS. Ideal-point controls unchanged.
+Default-attention crash rates: 0 at k=8, ~0.4 per 1000 veh·km at k=15 (empirical
+~0.0015) — the scaling is right, the magnitude is ~100× high: Stage 12's job. T9 PET mean
+1.75 s with 68 of ~256 changes below 1 s (a 1-s follower headway after a change is common
+tailgating; whether that share is realistic is a Stage 12 question).
+**Next:** Stage 12 calibration — crash-type shares vs freeway GES/FARS, near-crash:crash
+vs SHRP2, rates per veh·km (long runs through runner.mjs), the tReact × density phase
+diagram as the first paper-shaped result. Chris to eyeball the Pages site.
+
+
 ## 2026-09-23 — trucks "vibrating" in lane changes: the cascade now references the rear
 
 **Done:** Chris saw big trucks saw-toothing across the lane in the browser. Trace (human

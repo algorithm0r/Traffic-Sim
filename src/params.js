@@ -89,6 +89,8 @@ var PARAMETERS = {
     incidentClear: 120,    // s a crashed vehicle sits as an obstacle before it is cleared
     departSpeed: 8,        // m/s, leaving the pavement above this is a run-off-road crash
     shoulder: 1.5,         // m of shoulder beyond each pavement edge a body may straddle
+    periphTol: 0.15,       // m from the lane line at which peripheral vision notices the body's edge
+    petConflict: 1.0,      // s, post-encroachment time below which a lane change is a conflict
   },
 
   // --- driver model shared constants (IDM + MOBIL) ---

@@ -40,7 +40,8 @@ var World = class World {
       sideswipes: 0, aborts: 0, expiries: 0, changeDurSum: 0, changeDurN: 0,   // bicycle body only
       // safety (Stage 11): crashes are contacts at speed; near-crashes are TTC events
       crashes: 0, rearEnds: 0, sideswipeCrashes: 0, departures: 0, secondary: 0,
-      mergeCrashes: 0, cleared: 0, nearCrashes: 0, glances: 0,
+      mergeCrashes: 0, cleared: 0, nearCrashes: 0, glances: 0, periphCorrections: 0,
+      petSum: 0, petN: 0, lcConflicts: 0,   // post-encroachment time at lane-change completion
     };
 
     this.seedMainline(P.initialDensity);
@@ -954,10 +955,11 @@ var World = class World {
   // would itself be a correction and would kill drift — Chris caught this). Only when
   // position leaves the band does a correction engage, targeting just inside the edge.
   // Large laneTol collapses the band to the center, recovering the ideal keeper.
-  keepTarget(veh) {
+  keepTarget(veh, tol) {
     const W = PARAMETERS.laneWidth;
-    const lo = veh.lane * W + veh.p.laneTol + veh.width / 2;
-    const hi = (veh.lane + 1) * W - veh.p.laneTol - veh.width / 2;
+    const t = tol != null ? tol : veh.p.laneTol;
+    const lo = veh.lane * W + t + veh.width / 2;
+    const hi = (veh.lane + 1) * W - t - veh.width / 2;
     if (lo >= hi) return this.laneCenter(veh.lane);
     if (veh.y >= lo && veh.y <= hi) return null;    // inside the band: hands off
     // correct INTO the band, restoring real margin — targeting just-inside-the-line
@@ -1020,6 +1022,26 @@ var World = class World {
         }
       }
       const decide = attending && this.time >= veh.nextDecision;
+
+      // --- peripheral lane keeping during a glance (Summala et al. 1996: peripheral
+      //     vision keeps the lane, coarsely, and does not see the lead car brake).
+      //     At the decision cadence, if the body's edge has come within periphTol of a
+      //     lane line, a correction is steered — the glance continues, the
+      //     longitudinal command stays held, no looming evidence accrues. ---
+      if (!attending && !veh.changing && this.time >= veh.nextDecision) {
+        const yT = this.keepTarget(veh, A.periphTol);
+        if (yT != null) {
+          const dir = Math.sign(yT - veh.y);
+          const allowed = this.lateralClearance(veh, dir) - lc.latClearance;   // bodies alongside are peripheral too
+          let target = yT, gated = false;
+          if (allowed <= 0.02) { target = veh.y; gated = true; }
+          else if (Math.abs(yT - veh.y) > allowed) { target = veh.y + dir * allowed; gated = true; }
+          veh.heldDelta = veh.steerToward(target, veh.p.tReact, gated)
+            + (veh.p.motorErr ? gaussFrom(this.rng, 0, veh.p.motorErr) : 0);
+          this.stats.periphCorrections++;
+        }
+        veh.nextDecision = this.time + veh.p.tReact;
+      }
 
       if (decide) {
         // --- decision layer: perceive (noisily), command (imperfectly), hold ---
@@ -1291,6 +1313,14 @@ var World = class World {
           this.stats.laneChanges++;
           this.stats.changeDurSum += this.time - veh.changeStart;
           this.stats.changeDurN++;
+          // post-encroachment time: how long until the new follower reaches the slot I
+          // just occupied — the crossing-path surrogate safety measure
+          const nf = this.scanBehind(veh, this.laneBand(veh.targetLane), 150);
+          if (nf && nf.v > 0.5) {
+            const pet = Math.max(this.gapX(nf, veh), 0) / nf.v;
+            this.stats.petSum += pet; this.stats.petN++;
+            if (pet < P.attention.petConflict) this.stats.lcConflicts++;
+          }
         }
       }
 

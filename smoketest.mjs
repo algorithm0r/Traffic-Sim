@@ -247,7 +247,8 @@ function run(overrides, ticks, human) {
         `events=${events} (rear=${s.rearEnds} side=${s.sideswipeCrashes} depart=${s.departures})`);
   check('lane changes still occur', s.laneChanges > 0, `changes=${s.laneChanges}`);
   console.log(`      meanV=${(m.meanV * 2.23694).toFixed(1)} mph (ideal T6 comparison ≈ 51)` +
-              `  glances=${s.glances} nearCrashes=${s.nearCrashes}`);
+              `  glances=${s.glances} periphCorrections=${s.periphCorrections} nearCrashes=${s.nearCrashes}` +
+              `  PET mean=${(s.petSum / Math.max(s.petN, 1)).toFixed(2)} s lcConflicts=${s.lcConflicts}`);
 }
 
 // --- T10: inattention → accidents EMERGE (no crash rule anywhere) ---------------------
