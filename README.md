@@ -7,11 +7,13 @@ the shared engine v2.
 
 ## Run
 - **Browser:** open `index.html`.
-- **Headless batch:** `node runner.mjs --reps 50 [--params '{"laneCount":2}']` — runs the same
-  sim core via `vm` and writes self-describing packets to MongoDB through the research Server.
-- **Smoke test:** `node smoketest.mjs` — no DB, ~15 s; asserts conservation, collision-free
+- **Headless batch:** `npm install` once, then `node runner.mjs --reps 50 [--params '{"laneCount":2}']
+  [--tag "why"] [--scratch]` — runs the same sim files in the main realm (`headless.mjs`) and
+  writes self-describing packets to MongoDB through the research Server (`--transport direct`
+  on mint itself) into the next `batch_NNN`.
+- **Smoke test:** `node smoketest.mjs` — no DB, ~25 s; asserts conservation, collision-free
   running, the analytic IDM equilibrium, and renderer sanity.
-- **Validation:** `node validate.mjs` — no DB, ~3 min; fundamental diagram vs analytic IDM,
+- **Validation:** `node validate.mjs` — no DB, ~2 min; fundamental diagram vs analytic IDM,
   stop-and-go wave speed, onramp bottleneck breakdown, embodiment head-to-head, all
   against literature bands.
 - **Safety sweep:** `node sweep.mjs` — no DB, ~5 min; near-crash and crash rates per

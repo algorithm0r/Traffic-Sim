@@ -3,6 +3,29 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-23 — headless in the main realm (3.9×), runner through the Server, DB path VERIFIED
+
+**Done:** `headless.mjs` loads the browser sim files into the current realm with
+`vm.runInThisContext` (the sources are `var`/function globals, so this is exactly a
+<script> tag) instead of a contextified vm — conventions §4 warned the contextified global
+proxy defeats V8 inlining on every `PARAMETERS.*` read. Measured 5.09 → 1.32 s per 200 s of
+240 human vehicles, identical results; smoke 75 → 23 s, validate 3 → 2 min. Every headless
+script uses it. `runner.mjs` rewritten: `--transport socket|direct`, `--server`,
+`--scratch`, `--tag`, `--collection` (default: the next `batch_NNN` in the DB, per §4),
+run names `run_NNN`, safety fields and the crash log in every packet, exposure (veh·km)
+carried. `package.json` (socket.io-client; mongodb optional) — neither client had ever
+been installed here, which is why the DB path stayed UNVERIFIED for ten weeks. Mongo is on
+mint with 27017 localhost-only, so from this box the transport is the Server (the browser's
+own path). **Round trip verified:** `node runner.mjs --reps 1 --ticks 2000 --scratch` →
+`trafficSim_scratch.batch_001`, `{ok:true, inserted:1}`; scratch dropped after. Bicycle
+body made the default; suites pin 'lane' for the 1D controls.
+**Changed:** headless.mjs (new), runner.mjs, package.json + lock, smoketest/validate/
+sweep/phase/calib (loader), calib (seed ranges `1..25`, pooled rates, results/calib.md).
+**State:** smoke 10/10 PASS + VALIDATION PASS, numbers identical to the vm loader. Long-
+exposure calibration (25 seeds × 900 s per variant ≈ 10⁵ veh·km) running.
+**Next:** the long-exposure result → decide whether any attention default moves.
+
+
 ## 2026-09-23 — Stage 12 first pass: the phase diagram, calibration power, safety views
 
 **Done:** (1) `phase.mjs` — reaction time × density, 6 × 6 cells × 3 seeds × 600 s, human

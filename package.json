@@ -1,0 +1,20 @@
+{
+  "name": "traffic-sim",
+  "version": "0.4.1",
+  "private": true,
+  "description": "Agent-based freeway traffic simulator — browser sim + headless runner (same files)",
+  "scripts": {
+    "smoke": "node smoketest.mjs",
+    "validate": "node validate.mjs",
+    "sweep": "node sweep.mjs",
+    "phase": "node phase.mjs",
+    "calib": "node calib.mjs",
+    "run": "node runner.mjs"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.7.5"
+  },
+  "optionalDependencies": {
+    "mongodb": "^6.8.0"
+  }
+}

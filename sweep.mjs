@@ -6,7 +6,7 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import vm from 'vm';
+import { loadSim } from './headless.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -14,11 +14,7 @@ const flag = (n, d) => { const i = argv.indexOf('--' + n); return i >= 0 ? argv[
 const seed = parseInt(flag('seed', '5'), 10);
 const secs = parseInt(flag('secs', '600'), 10);
 
-const ctx = { Math, console, Date };
-vm.createContext(ctx);
-for (const f of ['util.js', 'params.js', 'engine.js', 'agent.js', 'world.js']) {
-  vm.runInContext(readFileSync(path.join(__dirname, 'src', f), 'utf8'), ctx, { filename: f });
-}
+const ctx = loadSim([]);   // main realm: ~4× faster than a vm context, same numbers
 const P = ctx.PARAMETERS;
 const BASE = JSON.parse(JSON.stringify(P));
 const BASE_ARCH = JSON.parse(JSON.stringify(ctx.ARCHETYPES));

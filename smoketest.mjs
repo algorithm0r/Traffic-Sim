@@ -4,15 +4,10 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import vm from 'vm';
+import { loadSim } from './headless.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ctx = { Math, console, Date };
-vm.createContext(ctx);
-for (const f of ['util.js', 'params.js', 'engine.js', 'agent.js', 'world.js',
-                 'observer.js', 'charts.js', 'datamanager.js']) {
-  vm.runInContext(readFileSync(path.join(__dirname, 'src', f), 'utf8'), ctx, { filename: f });
-}
+const ctx = loadSim(['observer.js', 'charts.js', 'datamanager.js']);   // main realm: ~4× faster than a vm context, same numbers
 
 const P = ctx.PARAMETERS;
 const BASE = JSON.parse(JSON.stringify(P));
