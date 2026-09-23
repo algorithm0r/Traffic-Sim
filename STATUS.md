@@ -18,7 +18,7 @@ lane awareness + PET pending)
   glances as a process (begun only when stable, wheel centred), shoulder check with a skip
   probability, post-crash obstacles, shoulder + run-off-road, near-crash (TTC) metric,
   crash log by type. No crash rule anywhere. Ideal point = old behaviour exactly.
-- smoke 10/10 PASS + VALIDATION PASS @ v0.4.1-1 (2026-09-23, pre-commit); T1-T7
+- smoke 10/10 PASS + VALIDATION PASS @ v0.4.1-1-g564da88 (2026-09-23); T1-T7
   byte-identical to v0.4.1 — the 1D control and the ideal-point 2D controls are untouched.
 - Published: github.com/algorithm0r/Traffic-Sim (public); Pages live at
   https://algorithm0r.github.io/Traffic-Sim/ (About link).
