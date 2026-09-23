@@ -18,7 +18,7 @@ runs and the figure pending)
   PET metrics. No crash rule anywhere. Ideal point = v0.4.1 behaviour exactly.
 - Browser: safety panel (rates vs SHRP2, PET, crash mix), near-crash graph, safety colour
   mode, reaction-time × and glance-rate × sliders, Drivers human/ideal toggle.
-- smoke 10/10 PASS + VALIDATION PASS + SWEEP PASS @ v0.4.1-6 (2026-09-23, pre-commit)
+- smoke 10/10 PASS + VALIDATION PASS + SWEEP PASS @ v0.4.1-6-g43e9462 (2026-09-23)
 - Published: github.com/algorithm0r/Traffic-Sim; Pages at https://algorithm0r.github.io/Traffic-Sim/
 - Browser view UNVERIFIED by eye since the truck fix (Playwright cannot launch here);
   DB path UNVERIFIED
