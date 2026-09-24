@@ -44,8 +44,8 @@ freeway reference and far more exposure)
   estimator 1-11%). Humans raise the drop at both bottlenecks
 
 ## Branches / tags
-- `main` tracks origin/main; tags v0.1-v0.4.1, v0.5 (2026-09-23). Stage 13 complete is a
-  v0.6 candidate (Chris's call)
+- `main` tracks origin/main; tags v0.1-v0.4.1, v0.5 (2026-09-23), **v0.6** (2026-09-24:
+  Stage 13 complete, Stage 12 calibrated to sourced references)
 
 ## Open
 - Realization variance 4-5× between independent 10⁵ veh·km sets — quote spreads, not Poisson
