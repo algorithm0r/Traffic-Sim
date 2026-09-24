@@ -211,7 +211,9 @@ function run(overrides, ticks, human) {
   const meanSD = sdSum / ys.size;
   const m = world.metrics();
   check('wander EXISTS (mean lateral SD > 0.02 m)', meanSD > 0.02, `SD=${meanSD.toFixed(3)} m`);
-  check('wander in the empirical band (SD < 0.45 m)', meanSD < 0.45, `SD=${meanSD.toFixed(3)} m`);
+  // the standardised on-road highway test: SDLP 13.5-15.3 cm for sober drivers over
+  // 10-100 km (calibrated 2026-09-24); the band allows for a single 5-min, 8-car sample
+  check('wander in the empirical band (SDLP 0.10-0.20 m)', meanSD > 0.10 && meanSD < 0.20, `SD=${meanSD.toFixed(3)} m`);
   // <1.85: the body's CENTRE never crosses the lane line. Was 0.8 before Stage 11; an
   // off-road glance suspends lane keeping and a held wheel integrates heading, so the
   // long-glance tail now produces ~1.3 m excursions (a corner over the line — real

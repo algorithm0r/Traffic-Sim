@@ -1,12 +1,13 @@
 # Traffic Sim — STATUS
 *One screen. The current pulse. Overwritten, never appended — for history read DEVLOG.*
 
-**Updated:** 2026-09-24 (Stage 13 done) — refreshed every session close; may carry unverified claims
+**Updated:** 2026-09-24 (Stage 12 cleanup) — refreshed every session close; may carry unverified claims
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-Stage 13 `[ DONE ]` (open road, lane drops, deceleration lanes; capacity drop in the
-empirical band) / Stage 12 `[ ACTIVE ]` (leftovers: wander SD, PET share, lane-change rate)
+Stage 13 `[ DONE ]` (open road, lane drops, deceleration lanes; capacity drop in band) /
+Stage 12 `[ ACTIVE ]` — calibration closed except crash-type proportions (needs a sourced
+freeway reference and far more exposure)
 
 ## State
 - Program goals (DEVPLAN, 2026-09-22): (1) cleaner, less rule-based 2D model; (2) traffic
@@ -29,37 +30,33 @@ empirical band) / Stage 12 `[ ACTIVE ]` (leftovers: wander SD, PET share, lane-c
 
 ## Metrics
 - Controls unchanged: FD ≈1% of analytic; capacity 1836; waves 13 km/h; ring embodiment
-  deltas ≤3.5%; D2 bottleneck 1314 veh/h/ln, 0 grazes
-- Phase diagram (results/PHASE.md, phase.html; 5 seeds, calibrated defaults): fluid to k=25
-  at 1.0× tReact; breaks at 30 at 1.3×, 16-20 at 1.6×, 12 at 2.0×. Fluid side ≤0.2 near
-  /1000 veh·km, zero crashes; across it 10-330 near, 0.1-2.6 crash. Boundary cells are
-  METASTABLE (17-55 mph across seeds at k=16 × 1.6)
-- Calibration (results/calib.md, 2×10⁵ veh·km): crash 0.005 (SHRP2 0.027 ✓). The old
-  "9× near-crash excess" was lateral conflicts miscounted; longitudinal near-crashes were
-  3× SHRP2 with 4-5× realization variance. Glances budgeted against headway (new default)
-  bring the hard set to evasive 0.069 vs SHRP2 0.048. Glance stats match naturalistic
-- Human defaults (T9): 0 crash events; T10 stress: 111 crashes / 216 — rear 42, side 19,
-  depart 2, secondary 12
-- Capacity drop (results/CAPDROP.md, open road, 5 seeds): merge 1D 17.4%, merge 2D ideal
-  8.9% / human 7.3%, lane drop 2D ideal 7.8% / human 16.6% (vs 5-min pre-max; the
-  conservative estimator reads −2 to 8%). The 2D body breaks down earlier, not harder
+  deltas ≤3.5%; D2 bottleneck 1302 veh/h/ln, 0 grazes
+- Lateral calibration (probes/lateral.mjs): SDLP 0.147 m vs on-road test 0.135-0.153 ✓
+  (was 0.32, unsourced); change duration 3.2 s vs NGSIM 4.0 ± 2.3 ✓; post-change headway
+  1.8 s mean vs highD peak 1 s ✓; lane changes 0.13/veh·km vs highD 0.24 (fleet spread)
+- Safety at calibrated defaults (results/calib-note.md, 2×10⁵ veh·km, k=15): 0 crashes,
+  near-crashes 0.010, lateral conflicts 0 — below SHRP2 all-roads (0.027 / 0.048)
+- Phase diagram (results/phase-note.md): fluid to k=25 at ≤1.3×; breaks at 25 at 1.6×,
+  from 12 at 2.0×. Calibrated lane keeping moved the slow-end boundary outward.
+  Boundary cells METASTABLE (8-34 mph across seeds at k=25 × 2.0)
+- Capacity drop (results/capdrop-note.md, 5 seeds): merge 1D 17.4%, 2D ideal 8.9%, 2D
+  human 10.8%; lane drop 2D ideal 7.8%, human 20.0% (vs 5-min pre-max; conservative
+  estimator 1-11%). Humans raise the drop at both bottlenecks
 
 ## Branches / tags
 - `main` tracks origin/main; tags v0.1-v0.4.1, v0.5 (2026-09-23). Stage 13 complete is a
   v0.6 candidate (Chris's call)
 
 ## Open
-- Lateral-conflict rate (0.15-0.56 per 1000 veh·km) has no empirical reference; wander SD
-  0.32 vs 0.2-0.3 is the suspect
 - Realization variance 4-5× between independent 10⁵ veh·km sets — quote spreads, not Poisson
-- PET share (28% < 1 s) vs NGSIM; lane-change rate
-- Lane-change RATE uncalibrated
+- Lane-change rate half of highD's (fleet speed spread differs) — recorded, not tuned
 - Runtimes (main realm): smoke ~40 s; validate ~2 min; sweep ~3 min; phase ~9 min;
   calib ~2 min per variant; capdrop ~30 min
 
 ## Next action
-Stage 12 leftovers (wander SD toward 0.2-0.3 without overshoot; PET share vs NGSIM;
-lane-change rate); more capdrop seeds; the glance-rate phase diagram.
+Crash-type proportions need a sourced freeway reference and interchange runs at ≥10⁶
+veh·km (runner.mjs overnight). Otherwise: more capdrop seeds, the glance-rate phase
+diagram, the stochastic-breakdown curve.
 
 ## Blockers
 - none

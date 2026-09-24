@@ -236,15 +236,19 @@ unchanged; T10 mix rear-end 42 / sideswipe 19 / departure 2 / secondary 12; swee
 and 5/6. Magnitudes ~100× empirical — Stage 12.
 
 ### Stage 12 — Safety validation & calibration  [ ACTIVE ]
-- [ ] Crash-type proportions vs NHTSA/GES freeway shares; near-crash : crash ratio vs
-      SHRP2; crash rate per VMT order of magnitude (rarity is the challenge — expect to
-      lean on surrogates).
+- [ ] Crash-type proportions vs a sourced freeway crash-type distribution. Still open: at
+      calibrated defaults crashes are too rare to have a type mix (0 in 2×10⁵ veh·km on a
+      basic segment); needs interchange geometry and ≥10⁶ veh·km, or a stressed population
+      named as such (T10: rear-end 45, sideswipe 5, run-off 1, secondary 7).
+- [x] Crash and near-crash rates per veh·km vs SHRP2 (results/calib-note.md): below the
+      all-roads reference at the calibrated defaults, as a basic freeway segment should be;
+      SHRP2 is a ceiling here, not a target
 - [x] The tReact × density phase diagram (`phase.mjs`, 6×6×3 seeds, results/phase.md):
       the breakdown boundary runs diagonally — fluid to k=25 at 1.0×, breaks at k=20 at
       1.3×, at k=12 at 2.0×; near-crash rate spans 0.1 → 459 per 1000 veh·km; wave-onset
       std tracks the same boundary. Reaction time is a phase-transition control parameter.
 - [x] Phase diagram as a figure (results/phase.html: boundary drawn, seed spreads per cell,
-      5 seeds) and the results note (results/PHASE.md) — the transition is metastable on
+      5 seeds) and the results note (results/phase-note.md) — the transition is metastable on
       the boundary. Longer runs on the boundary cells remain a caveat.
 - [x] Reference rates grounded (SHRP2 NDS: 35 M miles, 1,541 crashes, 2,705 near-crashes
       → 0.027 crashes and 0.048 near-crashes per 1000 veh·km, all severity; experienced
@@ -253,13 +257,14 @@ and 5/6. Magnitudes ~100× empirical — Stage 12.
 - [x] `calib.mjs` (k=15, 900 s × 3 seeds ≈ 12,000 veh·km per variant): defaults give
       0 crashes (upper bound ~0.08, consistent with 0.027) and 0.66 near-crashes per 1000
       veh·km (~14× SHRP2, ±60% Poisson). The glance-duration tail is the only lever that
-      registers (σ 0.5 → 0.3: 0.16); tightening the comfort band makes wander WORSE
-      (SD 0.33 → 0.41, the held-command overshoot T8 found); loomGain and checkProb do not
-      register at this exposure. Defaults left alone — three events is no basis for tuning.
+      registers (σ 0.5 → 0.3: 0.16); the "wander" variant made wander WORSE (SD 0.33 →
+      0.41) — CORRECTED 2026-09-24: it multiplied laneTol by 0.6, which WIDENS the band;
+      the "held-command overshoot" explanation written here was wrong. loomGain and
+      checkProb do not register at this exposure. Defaults left alone.
 - [x] Long-exposure runs (25 seeds × 900 s ≈ 10⁵ veh·km per variant, results/calib.md):
       crash rate at defaults 0.010 (1 event; SHRP2 0.027 — consistent); near-crash rate
       0.52, of which 0.43 with ≥0.5 g braking — **~9× SHRP2 on SHRP2's own definition**,
-      a real excess (±14%). Glance tail σ 0.5 → 0.3 halves it; tighter comfort band ×8
+      a real excess (±14%). Glance tail σ 0.5 → 0.3 halves it; a WIDER comfort band ×8
       worse; loomGain, checkProb no help. Defaults not moved.
 - [x] Glance-duration distribution checked against the naturalistic baseline: 0.90 s mean,
       5.5% > 2 s, 7.9% eyes-off (naturalistic ~4% > 2 s) — not the problem. Near-crash
@@ -269,10 +274,22 @@ and 5/6. Magnitudes ~100× empirical — Stage 12.
       `glanceHeadwayFrac` 0.5 adopted — paired 27 → 8 near-crashes, evasive rate ≈ SHRP2.
 - [x] The shoulder-check "anomaly" was a random-stream shift (probability exactly 1.0 skips
       a draw), i.e. realization variance. Closed.
-- [ ] Wander SD 0.32 vs empirical 0.2-0.3 (the suspect behind lateral conflicts), reached
-      through motorErr / laneTol WITHOUT the held-command overshoot a tighter band causes
-- [ ] PET-conflict share (~26% of changes < 1 s) vs NGSIM lane-change headways
+- [x] Lane-position SD calibrated (probes/lateral.mjs): the "empirical 0.2-0.3" in the code
+      was never sourced; the standardised on-road highway test gives SDLP 13.5-15.3 cm for
+      sober drivers over 10-100 km. SD ≈ the comfort band's half-width / √3, so laneTol
+      +0.35 m on every archetype: 0.32 → 0.147 m (T8 now asserts 0.10-0.20)
+- [x] Lane-change duration: human mode 3.2 s vs NGSIM 4.0 ± 2.3 s, mode ~3 s (Thiemann,
+      Treiber & Kesting 2008) — in range; the lateral-speed cap left alone (1.0 m/s gives
+      exactly 4.0 s but adds lateral conflicts and moves the validated 2D control)
+- [x] PET after a change: mean 1.8 s, ~30% < 1 s vs highD cut-in follower headways
+      spanning 0.1-4 s and peaking at 1 s — consistent; closed
+- [x] Lane-change rate: 0.13 per veh·km (k=15 ring, no ramps) vs highD 0.24 (11,000 changes
+      over 45,000 km, German motorways). Within a factor of 2; highD's wider desired-speed
+      spread (unlimited sections) means more passing. Recorded, not tuned
 **Done when:** the safety indicators land in defensible bands and the sweeps are written up.
+2026-09-24: every indicator with a sourced reference is in band or explained (SDLP, change
+duration, PET, crash and near-crash rates, capacity drop); phase diagram, calibration and
+capacity drop written up. Open: crash-type proportions (see above).
 
 ### Stage 13 — Open road, capacity drop, lane drops  [ DONE ]
 - [x] Open-boundary mode (`openRoad`, both bodies): a 600-m void past the road's end
@@ -290,5 +307,6 @@ and 5/6. Magnitudes ~100× empirical — Stage 12.
       lane length and lane-drop geometry; the stochastic-breakdown curve (breakdown
       probability vs flow) the 2D body now exhibits
 **Done when:** capacity drop lands in the 5-20% empirical band under an open-boundary test.
-✓ 2026-09-24 (results/CAPDROP.md): case means 7.3-17.4% on the literature-style measure;
-the conservative estimator reads lower (−2 to 8%), and the truth lies between.
+✓ 2026-09-24 (results/capdrop-note.md): case means 7.8-20.0% on the literature-style measure
+(after lane-keeping calibration); the conservative estimator reads lower (1 to 11%), and the
+truth lies between.

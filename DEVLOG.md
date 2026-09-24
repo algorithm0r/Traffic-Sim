@@ -3,6 +3,36 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-24 — Stage 12 cleanup: lateral calibration, three corrections, every result rerun
+
+**Done:** (1) Lane-position SD calibrated to a sourced reference. The "empirical 0.2-0.3 m"
+in the code and in earlier entries was never sourced; the standardised on-road highway test
+gives SDLP 13.5-15.3 cm for sober drivers. SD ≈ the comfort band's half-width / √3, so
+laneTol +0.35 m on every archetype: 0.32 → 0.147 m (probes/lateral.mjs; T8 now asserts
+0.10-0.20). (2) Checked against sourced references and closed without tuning: change
+duration 3.2 s (NGSIM 4.0 ± 2.3, mode ~3); post-change follower headway 1.8 s mean, ~30%
+< 1 s (highD cut-ins peak at 1 s); lane-change rate 0.13/veh·km vs highD 0.24 (German
+motorways, wider speed spread — recorded). (3) Every result rerun under the new band:
+calibration at 2×10⁵ veh·km — 0 crashes, near-crashes 0.010, lateral conflicts 0 (the
+lateral excess was the unsourced wander); phase diagram — slow-end boundary moved outward
+(1.6×: k=16-20 → 25; 2.0×: k=12 → 12-20), lane-keeping precision is a second micro
+parameter with a macro effect; sweep 6/6 and 6/6; capacity drop — ideal rows identical,
+human merge 7.3 → 10.8%, human lane drop 16.6 → 20.0%.
+**Corrections to earlier entries (append-only log, so recorded here):** (a) 2026-09-23's
+"tightening the comfort band makes wander worse — held-command overshoot" is wrong: that
+variant multiplied laneTol by 0.6, which WIDENS the band. (b) The "empirical 0.2-0.3 m"
+wander band cited from v0.3 onward was unsourced. (c) results/PHASE.md, results/CAPDROP.md
+and the hand-consolidated results/calib.md collided with the generated phase.md,
+capdrop.md and calib.md on this case-insensitive filesystem — the committed "tables" were
+the notes, and each rerun overwrote a note. Notes now live at results/*-note.md.
+**Changed:** params (laneTol), smoketest T8, calib.mjs comments, probes/lateral.mjs (new),
+phasefig.mjs, results/ (all tables regenerated; phase-note, calib-note, capdrop-note).
+**State:** smoke 12/12 + VALIDATION PASS + SWEEP PASS. Stage 12 open item: crash-type
+proportions (no sourced freeway reference yet; crashes too rare at calibrated defaults).
+**Next:** crash-type proportions with interchange geometry at ≥10⁶ veh·km; more capdrop
+seeds; the glance-rate phase diagram.
+
+
 ## 2026-09-24 — Stage 13 done: the capacity drop lands in the empirical band
 
 **Done:** capdrop rerun on the corrected model (5 cases × 5 seeds, 48 min): every run broke

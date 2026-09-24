@@ -90,7 +90,7 @@ ${heatmap('Crashes per 1000 veh·km (SHRP2 all-severity ≈ 0.027)', 'crash', (v
 <p>Reading: the breakdown boundary runs diagonally — the density at which the ring breaks down falls as reaction time
 rises — and the safety rates ride the same boundary, spanning orders of magnitude across the grid while the crash rate stays
 near zero on the fluid side. Reaction time is a phase-transition control parameter. Seed spreads are wide on the boundary:
-near-crashes cluster in realizations that form a wave (results/calib.md).</p>
+near-crashes cluster in realizations that form a wave (results/calib-note.md).</p>
 `;
 writeFileSync(path.join(__dirname, 'results', 'phase.html'), html);
 console.log('wrote results/phase.html');

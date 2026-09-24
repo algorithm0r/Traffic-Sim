@@ -27,11 +27,11 @@ const BASE_ARCH = JSON.parse(JSON.stringify(ctx.ARCHETYPES));
 
 const VARIANTS = {
   base:    (a, p) => {},
-  wander:  (a, p) => { a.laneTol = [a.laneTol[0] * 0.6, a.laneTol[1] * 0.6]; },   // toward SD 0.2 m
+  wander:  (a, p) => { a.laneTol = [a.laneTol[0] * 0.6, a.laneTol[1] * 0.6]; },   // WIDENS the band (smaller margin from the line) → more wander
   tail:    (a, p) => { p.attention.glanceSigma = 0.3; },                          // shorter long-glance tail
   loom:    (a, p) => { a.loomGain = [a.loomGain[0] * 1.5, a.loomGain[1] * 1.5]; },
   check:   (a, p) => { a.checkProb = [Math.min(1, a.checkProb[0] + 0.02), a.checkProb[1]]; },
-  combo:   (a, p) => { a.laneTol = [a.laneTol[0] * 0.6, a.laneTol[1] * 0.6]; p.attention.glanceSigma = 0.3; },
+  combo:   (a, p) => { a.laneTol = [a.laneTol[0] * 0.6, a.laneTol[1] * 0.6]; p.attention.glanceSigma = 0.3; },   // wider band + shorter tail
   headway: (a, p) => { p.attention.glanceHeadwayFrac = 0.5; },   // glance ≤ half the time headway
   headway3:(a, p) => { p.attention.glanceHeadwayFrac = 0.33; },
 };

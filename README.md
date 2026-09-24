@@ -20,12 +20,13 @@ the shared engine v2.
   1000 veh·km over density × reaction time × glance rate with human drivers.
 - **Phase diagram:** `node phase.mjs --seeds 1,2,3,4,5` (~9 min) then `node phasefig.mjs` —
   reaction time × density grid → `results/phase.{json,md,html}`; the finding is written up
-  in `results/PHASE.md`.
+  in `results/phase-note.md`.
 - **Calibration:** `node calib.mjs` — ~2 min per variant; default-attention safety rates vs
-  SHRP2 across parameter variants → `results/calib.md`.
+  SHRP2 across parameter variants → `results/calib.md`; the calibration story is
+  `results/calib-note.md`; lateral measures via `probes/lateral.mjs`.
 - **Capacity drop:** `node capdrop.mjs --seeds 1..5` — ~48 min; open road, merge and lane
   drop, both bodies, the empirical protocol → `results/capdrop.{md,json}`; written up in
-  `results/CAPDROP.md`.
+  `results/capdrop-note.md`.
 - **Open road / lane drops / deceleration lanes:** `openRoad`, `upstreamDemand`,
   `laneDropAt`, `decelLaneLength` in `src/params.js`.
 - **Live:** https://algorithm0r.github.io/Traffic-Sim/
