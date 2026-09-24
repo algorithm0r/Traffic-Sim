@@ -89,12 +89,16 @@ function run(c, seed) {
     // rolling means over noisy 1-min bins is biased upward)
     const pre = bins.slice(Math.max(8, tb - 10), tb);
     pre10 = pre.length ? pre.reduce((a, b) => a + b.downQ, 0) / pre.length : NaN;
-    const after = bins.slice(tb + 5).filter((b) => b.upV < thr);
+    // after breakdown an empty upstream bin is a STANDING queue (nothing crossed), not
+    // free road: count it as speed 0 rather than dropping it (the first run silently
+    // excluded a 13-minute gridlock from the discharge average)
+    const after = bins.slice(tb + 5).filter((b) => !isFinite(b.upV) || b.upV < thr);
     qdrBins = after.length;
     if (qdrBins >= 10) qdr = after.reduce((a, b) => a + b.downQ, 0) / qdrBins;
   }
   const s = world.stats;
-  return { seed, vFree, tb, preMax, pre10, qdr, qdrBins, drop: 1 - qdr / preMax, drop10: 1 - qdr / pre10,
+  const stalls = tb > 0 ? bins.slice(tb).filter((b) => b.downQ === 0).length : 0;
+  return { seed, vFree, tb, preMax, pre10, qdr, qdrBins, stalls, drop: 1 - qdr / preMax, drop10: 1 - qdr / pre10,
            crashes: s.crashes / 2 | 0, rear: s.collisions, side: s.sideswipes || 0,
            merges: s.merges, maxQueue: world.upstream.maxQueue, bins };
 }
@@ -103,7 +107,7 @@ const t0 = Date.now();
 const out = { generated: new Date().toISOString(), seeds, cases: {} };
 const lines = [];
 const NL = String.fromCharCode(10), FENCE = '```';
-const header = '  case                   seed  breakdown(min)  pre-max  pre-10    QDR    drop  drop10   merges  crashes  grazes';
+const header = '  case                   seed  breakdown(min)  pre-max  pre-10    QDR    drop  drop10   merges  crashes  grazes  stalled-min';
 console.log(header);
 for (const [name, c] of Object.entries(CASES)) {
   if (only && !only.split(',').includes(name)) continue;
@@ -115,7 +119,7 @@ for (const [name, c] of Object.entries(CASES)) {
       `${isFinite(r.preMax) ? r.preMax.toFixed(0).padStart(7) : '      -'}  ${isFinite(r.pre10) ? r.pre10.toFixed(0).padStart(6) : '     -'}  ` +
       `${isFinite(r.qdr) ? r.qdr.toFixed(0).padStart(5) : '    -'}  ` +
       `${isFinite(r.drop) ? (100 * r.drop).toFixed(1).padStart(5) + '%' : '     -'}  ${isFinite(r.drop10) ? (100 * r.drop10).toFixed(1).padStart(5) + '%' : '     -'}  ${String(r.merges).padStart(6)}  ` +
-      `${String(r.crashes).padStart(7)}  ${String(r.side).padStart(6)}`;
+      `${String(r.crashes).padStart(7)}  ${String(r.side).padStart(6)}  ${String(r.stalls).padStart(11)}`;
     console.log(line); lines.push(line);
   }
   const ok = reps.filter((r) => isFinite(r.drop));

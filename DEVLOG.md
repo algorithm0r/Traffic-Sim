@@ -3,6 +3,35 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-24 — capdrop's first full run was not a result: a lane-drop gridlock and a wall bug
+
+**Done:** the first 5-case × 5-seed capacity-drop run read 35-46% at the lane drop and
+negative drops at the bicycle merge. The minute series (not the summary) showed why:
+lane-drop seed 1 had NOTHING cross either detector for 13 minutes from minute 52 (the
+discharge average had silently excluded those empty bins), and the bicycle merge's
+downstream flow collapsed to 450 veh/h/ln in free flow. Two mechanisms, both traced with
+probes (probes/dropjam.mjs, probes/mergeflicker.mjs):
+(1) A new mutual wait for long bodies: a truck stopped at a lane end with its cab angled
+0.7 m into the next lane (a stopped rear-pivot body cannot straighten), and a truck beside
+it committed to moving AWAY into an empty lane, whose creep check saw the intruding cab
+and never moved. The creep rule now lets a committed changer pass stopped blockers on the
+side it is steering away from when its target lane is clear — creeping swings its cab away.
+(2) My own rotated-body change: the lane-end distance measured the whole body's lateral
+extent (rear corner included) against the taper at the FRONT's x, where the pavement had
+already closed, so a truck fully merged except for a 0.39 m rear overhang saw "wall 0",
+stayed flagged in the ending lane, and parked. Both the lane-end distance and the merged
+test are back on the front: the front leads into the taper and the rear tracks inside it
+(the taper widens 1.7 m over a truck's length, more than the cab's ≤1 m lead).
+Also: capdrop counts an empty post-breakdown upstream bin as a standing queue (speed 0)
+and reports stalled minutes instead of averaging them away.
+**State:** lane drop flows past minute 60 on seeds 1, 2, 5; merge free-flow flicker gone
+(930-1200 veh/h/ln at ~1100 demand — what remains is truck merge disruption, a 0.6 m/s²
+truck cannot reach mainline speed on a 260-m acceleration lane). smoke PASS + VALIDATION
+PASS (bicycle bottleneck 1302 veh/h/ln). The full capdrop rerun is in progress; the first
+run's numbers are superseded and not reported.
+**Next:** the rerun's result against the 5-20% band.
+
+
 ## 2026-09-24 — deceleration lanes
 
 **Done:** `decelLaneLength` (bicycle; default 0 keeps the validated interchange behaviour):

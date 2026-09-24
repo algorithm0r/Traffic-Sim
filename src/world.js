@@ -739,7 +739,11 @@ var World = class World {
   wallDist(veh) {
     if (!veh.onRamp) return Infinity;
     const P = PARAMETERS, r = veh.onRamp;
-    const yOuter = veh.band()[1] + 0.05;   // the whole body, tail included
+    // the FRONT's outer extent: the front leads into the closing taper and the rear
+    // tracks inside it (the taper widens 1.7 m over a truck's length, more than the ≤1 m
+    // the heading cap lets a cab lead). Measuring the whole body here compared the rear's
+    // extent against the taper at the FRONT's x and parked merged trucks at "wall 0".
+    const yOuter = veh.y + veh.width / 2 + 0.05;
     if (yOuter <= this.roadWidth()) return Infinity;
     const frac = clamp((yOuter - this.roadWidth()) / P.laneWidth, 0, 1);
     const xWall = (r.x + r.len + P.lc.taperLen * (1 - frac)) % this.L;
@@ -1403,7 +1407,16 @@ var World = class World {
             for (const s of this.segs(o)) {
               const ds = this.distAhead(veh.x, s.x);
               if (ds < this.L / 2 && ds - s.len < 8 && this.bandsOverlap(s.band, band, 0.05)) {
-                clear = false; break;
+                // a stopped encroacher on the side I am steering AWAY from, with my target
+                // lane clear of it, does not block a committed changer: creeping forward
+                // swings my cab away (rear pivot) and increases separation. Without this,
+                // a truck nosed out of an ending lane and a truck beside it waiting to move
+                // into an empty lane held each other for minutes (probes/dropjam.mjs).
+                const away = veh.changing && o.v < 0.5 &&
+                  Math.sign((s.band[0] + s.band[1]) / 2 - veh.y) ===
+                    -Math.sign(this.laneCenter(veh.targetLane) - veh.y) &&
+                  !this.bandsOverlap(s.band, this.laneBand(veh.targetLane), 0.05);
+                if (!away) { clear = false; break; }
               }
             }
             if (!clear) break;
@@ -1475,7 +1488,7 @@ var World = class World {
       }
 
       // an ending lane is left the moment the body is on the through road: merged
-      if (veh.onRamp && veh.band()[1] <= this.roadWidth() + 0.2) {
+      if (veh.onRamp && veh.y + veh.width / 2 <= this.roadWidth() + 0.2) {   // front on the road
         veh.onRamp = null;
         if (!veh.changing) veh.lane = right;
         this.stats.merges++;
