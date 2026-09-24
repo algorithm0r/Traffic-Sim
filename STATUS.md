@@ -29,9 +29,10 @@ runs and the figure pending)
 ## Metrics
 - Controls unchanged: FD ≈1% of analytic; capacity 1836; waves 13 km/h; ring embodiment
   deltas ≤3.5%; D2 bottleneck 1314 veh/h/ln, 0 grazes
-- Phase diagram (results/phase.md): fluid to k=25 at 1.0× tReact (43 mph, 0.5 near/1000
-  veh·km); breaks at k=20 at 1.3× (42 mph, 9.2); at k=12 at 2.0× (42 mph, 63). Crash rate
-  ~0 at ≤1.0×; 10/1000 at k=30 × 2.0×
+- Phase diagram (results/PHASE.md, phase.html; 5 seeds, calibrated defaults): fluid to k=25
+  at 1.0× tReact; breaks at 30 at 1.3×, 16-20 at 1.6×, 12 at 2.0×. Fluid side ≤0.2 near
+  /1000 veh·km, zero crashes; across it 10-330 near, 0.1-2.6 crash. Boundary cells are
+  METASTABLE (17-55 mph across seeds at k=16 × 1.6)
 - Calibration (results/calib.md, 2×10⁵ veh·km): crash 0.005 (SHRP2 0.027 ✓). The old
   "9× near-crash excess" was lateral conflicts miscounted; longitudinal near-crashes were
   3× SHRP2 with 4-5× realization variance. Glances budgeted against headway (new default)
@@ -52,8 +53,8 @@ runs and the figure pending)
 - Smoke ~75 s; validate ~3 min; sweep ~5 min; phase ~25 min; calib ~10 min
 
 ## Next action
-Wander SD toward empirical without the held-command overshoot; the phase-diagram figure;
-Stage 13 open boundaries.
+Wander SD toward empirical without the held-command overshoot; the glance-rate analogue
+of the phase diagram; Stage 13 open boundaries. Chris: open results/phase.html.
 
 ## Blockers
 - none

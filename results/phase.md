@@ -1,48 +1,62 @@
-# Reaction time × density phase diagram
+# Reaction time as a phase-transition control parameter
 
-600 s runs, 3-lane 4 km ring, human archetypes, seeds 5,6,7; cells are seed means. Generated 2026-09-23T18:03:02.167Z.
+*Results note, 2026-09-24. Data: `phase.json` / `phase.md` (tables), `phase.html` (figure). Regenerate with `node phase.mjs --seeds 1,2,3,4,5 && node phasefig.mjs`. Model state: v0.5 plus the headway-budgeted glance default (commit bf73d0b).*
 
-## Mean speed (mph)
+## Setup
 
-| k \ tReact× | 0.6 | 0.8 | 1.0 | 1.3 | 1.6 | 2.0 |
-|---|---|---|---|---|---|---|
-| 8 | 62 | 62 | 62 | 62 | 62 | 61 |
-| 12 | 59 | 59 | 59 | 58 | 58 | 42 |
-| 16 | 55 | 51 | 55 | 55 | 54 | 32 |
-| 20 | 50 | 50 | 50 | 42 | 38 | 20 |
-| 25 | 43 | 43 | 43 | 35 | 31 | 26 |
-| 30 | 34 | 34 | 32 | 24 | 26 | 21 |
+A 3-lane, 4 km closed ring; the bicycle body with fallible perception (Stage 11); the four
+human archetypes at their default attention parameters. Two things vary: the seeded
+density (8 to 30 veh/km/lane) and a multiplier on every driver's reaction time, the
+interval between decision points at which commands are held open-loop (0.6× to 2.0× the
+archetype values of 0.35 to 0.70 s). Each cell is five seeds of 600 s. Recorded per run:
+mean speed, the standard deviation of 5-s detector speeds after a 200-s warm-up (wave
+onset), and near-crash and crash rates per 1000 veh·km (a near-crash is a TTC < 1.5 s
+episode with a leader genuinely ahead; a crash is any contact above 3 m/s).
 
-## Detector speed std after warm-up (m/s) — wave onset
+## Finding
 
-| k \ tReact× | 0.6 | 0.8 | 1.0 | 1.3 | 1.6 | 2.0 |
-|---|---|---|---|---|---|---|
-| 8 | 1.4 | 1.4 | 1.4 | 1.6 | 1.3 | 2.8 |
-| 12 | 1.0 | 1.0 | 1.1 | 1.1 | 1.1 | 1.6 |
-| 16 | 0.4 | 0.9 | 0.5 | 1.3 | 0.8 | 7.8 |
-| 20 | 0.4 | 0.3 | 0.4 | 1.5 | 3.3 | 4.9 |
-| 25 | 0.3 | 0.4 | 0.3 | 1.3 | 3.0 | 5.9 |
-| 30 | 2.6 | 1.5 | 2.3 | 3.6 | 4.4 | 6.0 |
+The breakdown boundary runs diagonally through the grid. At normal reaction time the ring
+is fluid at every density tested up to 25 veh/km/lane (43 mph, detector std 0.5 m/s,
+0.23 near-crashes per 1000 veh·km); at 30 it is congested but steady. Multiplying reaction
+time by 1.3 moves the breakdown to 30; by 1.6, to 16 to 20; by 2.0, to 12, and even at 8
+veh/km/lane the detector std has doubled and near-crashes have appeared. The safety rates
+ride the same boundary: on the fluid side, near-crashes stay at or below 0.2 per 1000
+veh·km and the crash rate is zero at every cell; across it, near-crashes rise through two
+orders of magnitude (to 330 at k=30 × 2.0) and crashes appear (0.1 to 2.6).
 
-## Near-crashes per 1000 veh·km
+Reaction time therefore behaves as a control parameter for the flow's phase, not merely as
+a safety parameter: the same density is fluid or broken depending on it, and the
+transition is sharp in the multiplier (between 1.3× and 1.6× at k=20 to 25).
 
-| k \ tReact× | 0.6 | 0.8 | 1.0 | 1.3 | 1.6 | 2.0 |
-|---|---|---|---|---|---|---|
-| 8 | 0.21 | 0.21 | 0.21 | 4.36 | 1.68 | 29.67 |
-| 12 | 0.15 | 1.47 | 0.29 | 0.59 | 6.57 | 62.55 |
-| 16 | 0.24 | 2.33 | 0.59 | 0.95 | 2.87 | 114.93 |
-| 20 | 0.10 | 0.21 | 0.41 | 9.18 | 27.78 | 211.49 |
-| 25 | 0.19 | 0.58 | 0.49 | 7.36 | 106.30 | 330.41 |
-| 30 | 3.33 | 1.20 | 9.56 | 35.84 | 153.30 | 458.62 |
+## The transition is metastable
 
-## Crashes per 1000 veh·km (SHRP2 all-severity ≈ 0.027)
+In cells on the boundary, individual realizations either break down or do not. At k=16 ×
+1.6 the five seeds span 17 to 55 mph and 0.7 to 33 near-crashes per 1000 veh·km; at k=12 ×
+2.0, 44 to 59 mph and 6 to 95. Away from the boundary the spreads are narrow (k=25 × 2.0:
+17 to 35 mph, 209 to 290). This is the expected signature of a first-order-like transition
+in a finite closed system: a perturbation of sufficient size tips the ring into a jam that
+then persists, and whether one occurs within 600 s is a matter of the realization. It is
+also why near-crash counts have a 4 to 5× spread between independent seed sets at fixed
+parameters (`calib.md`): near-crashes cluster in the realizations that break.
 
-| k \ tReact× | 0.6 | 0.8 | 1.0 | 1.3 | 1.6 | 2.0 |
-|---|---|---|---|---|---|---|
-| 8 | 0.000 | 0.000 | 0.000 | 0.246 | 0.000 | 0.929 |
-| 12 | 0.000 | 0.074 | 0.000 | 0.000 | 0.149 | 1.930 |
-| 16 | 0.000 | 0.224 | 0.000 | 0.000 | 0.000 | 2.955 |
-| 20 | 0.000 | 0.000 | 0.000 | 0.121 | 0.746 | 4.771 |
-| 25 | 0.000 | 0.000 | 0.000 | 0.231 | 2.263 | 5.196 |
-| 30 | 0.000 | 0.000 | 0.155 | 0.856 | 3.148 | 10.446 |
+## Caveats
 
+- Closed ring: the "density" is the seeded density and the breakdown, once triggered,
+  cannot drain. Open boundaries (Stage 13) are needed for a capacity statement.
+- 600 s per run under-samples the metastable cells; the boundary cells need longer runs
+  and more seeds before the transition multiplier is quoted to better than ±0.3.
+- The attention defaults are calibrated to SHRP2 rates at k=15 and normal reaction time
+  (`calib.md`); the reaction-time multiplier is a scan, not a calibrated population. The
+  fluid-side crash rate of exactly zero reflects 600-s runs at 1.5 to 3.5 thousand veh·km
+  per cell, i.e. an upper bound of roughly 0.3 per 1000 veh·km, not a measurement of the
+  0.027 reference.
+- The detector-std threshold of 2 m/s for "broken" is a convention chosen to separate the
+  bimodal cells; the speed and near-crash tables tell the same story without it.
+
+## What this buys the program
+
+The micro→macro coupling the project was built to study is now a measured object: a
+boundary in (reaction time, density) with flow and safety observables on both sides. The
+natural next experiments are the attention analogue (glance rate as the second control
+parameter; the sweep already shows the boundary moving inward under 3× glances) and the
+open-boundary version where the transition becomes a capacity drop.

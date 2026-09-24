@@ -3,6 +3,26 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-24 — the phase diagram, re-run under the calibrated defaults, with a figure and a results note
+
+**Done:** `phase.mjs` re-run at 5 seeds per cell under the headway-budgeted default
+(6 × 6 × 5 = 180 runs, 9 min in the main realm). `phasefig.mjs` renders
+results/phase.html — four heatmaps (speed, wave-onset std, near-crash rate, crash rate)
+with the seed min–max in every cell and the breakdown boundary drawn where the seed-mean
+detector std crosses 2 m/s; self-contained, works from file:// and Pages.
+results/PHASE.md is the results note: setup, finding, the metastability, caveats.
+**Finding, restated:** the breakdown boundary runs diagonally — fluid to k=25 at 1.0×
+tReact; breaks at 30 at 1.3×, at 16-20 at 1.6×, at 12 at 2.0×. Safety rides the boundary:
+fluid side ≤ 0.2 near-crashes per 1000 veh·km and zero crashes in every cell; across it
+10 → 330 and 0.1 → 2.6. **The transition is metastable:** on the boundary individual
+seeds either break or don't (k=16 × 1.6: 17-55 mph across five seeds; k=12 × 2.0: 44-59),
+which is also why near-crash counts spread 4-5× between seed sets at fixed parameters.
+**Changed:** phasefig.mjs (new), results/phase.{json,md,html}, results/PHASE.md, README.
+**State:** suites unchanged (no model change). Figure UNVERIFIED by eye.
+**Next:** wander SD toward empirical (lateral conflicts); the glance-rate analogue of the
+diagram; Stage 13 open boundaries so the transition becomes a capacity drop.
+
+
 ## 2026-09-23 — v0.5 tagged; the near-crash excess decomposed and resolved (headway-budgeted glances)
 
 **Done:** v0.5 tagged (Stage 11 complete, phase diagram, browser + DB verified). Then the

@@ -243,8 +243,9 @@ and 5/6. Magnitudes ~100× empirical — Stage 12.
       the breakdown boundary runs diagonally — fluid to k=25 at 1.0×, breaks at k=20 at
       1.3×, at k=12 at 2.0×; near-crash rate spans 0.1 → 459 per 1000 veh·km; wave-onset
       std tracks the same boundary. Reaction time is a phase-transition control parameter.
-- [ ] Phase diagram as a figure (boundary drawn, more seeds per cell, longer runs); the
-      write-up of the finding
+- [x] Phase diagram as a figure (results/phase.html: boundary drawn, seed spreads per cell,
+      5 seeds) and the results note (results/PHASE.md) — the transition is metastable on
+      the boundary. Longer runs on the boundary cells remain a caveat.
 - [x] Reference rates grounded (SHRP2 NDS: 35 M miles, 1,541 crashes, 2,705 near-crashes
       → 0.027 crashes and 0.048 near-crashes per 1000 veh·km, all severity; experienced
       adults 37 near-crashes per million miles). These, not police-reported rates, are the
