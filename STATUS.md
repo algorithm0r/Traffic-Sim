@@ -1,13 +1,12 @@
 # Traffic Sim — STATUS
 *One screen. The current pulse. Overwritten, never appended — for history read DEVLOG.*
 
-**Updated:** 2026-09-23 (Stage 12 first pass) — refreshed every session close; may carry unverified claims
+**Updated:** 2026-09-24 (Stage 13 done) — refreshed every session close; may carry unverified claims
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-Stage 12 `[ ACTIVE ]` (calibration: phase diagram + figure + note done, near-crashes
-calibrated; wander SD, PET, lane-change rate open) / Stage 13 `[ ACTIVE ]` (open road and
-lane drops built; capacity-drop experiment running; decel lanes pending)
+Stage 13 `[ DONE ]` (open road, lane drops, deceleration lanes; capacity drop in the
+empirical band) / Stage 12 `[ ACTIVE ]` (leftovers: wander SD, PET share, lane-change rate)
 
 ## State
 - Program goals (DEVPLAN, 2026-09-22): (1) cleaner, less rule-based 2D model; (2) traffic
@@ -41,10 +40,13 @@ lane drops built; capacity-drop experiment running; decel lanes pending)
   bring the hard set to evasive 0.069 vs SHRP2 0.048. Glance stats match naturalistic
 - Human defaults (T9): 0 crash events; T10 stress: 111 crashes / 216 — rear 42, side 19,
   depart 2, secondary 12
+- Capacity drop (results/CAPDROP.md, open road, 5 seeds): merge 1D 17.4%, merge 2D ideal
+  8.9% / human 7.3%, lane drop 2D ideal 7.8% / human 16.6% (vs 5-min pre-max; the
+  conservative estimator reads −2 to 8%). The 2D body breaks down earlier, not harder
 
 ## Branches / tags
-- `main` tracks origin/main; tags v0.1-v0.4.1, **v0.5** (2026-09-23: Stage 11 complete,
-  phase diagram, browser + DB verified)
+- `main` tracks origin/main; tags v0.1-v0.4.1, v0.5 (2026-09-23). Stage 13 complete is a
+  v0.6 candidate (Chris's call)
 
 ## Open
 - Lateral-conflict rate (0.15-0.56 per 1000 veh·km) has no empirical reference; wander SD
@@ -56,8 +58,8 @@ lane drops built; capacity-drop experiment running; decel lanes pending)
   calib ~2 min per variant; capdrop ~30 min
 
 ## Next action
-Wander SD toward empirical without the held-command overshoot; the glance-rate analogue
-of the phase diagram; Stage 13 open boundaries. Chris: open results/phase.html.
+Stage 12 leftovers (wander SD toward 0.2-0.3 without overshoot; PET share vs NGSIM;
+lane-change rate); more capdrop seeds; the glance-rate phase diagram.
 
 ## Blockers
 - none

@@ -3,6 +3,27 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-24 — Stage 13 done: the capacity drop lands in the empirical band
+
+**Done:** capdrop rerun on the corrected model (5 cases × 5 seeds, 48 min): every run broke
+down, none stalled. Drop vs the 5-min pre-breakdown max (literature style) / vs the 10-min
+pre-breakdown mean (conservative): merge 1D ideal 17.4% / 7.7%; merge bicycle ideal 8.9% /
+0.8%; merge bicycle human 7.3% / −2.1%; lane drop bicycle ideal 7.8% / 1.3%; lane drop
+bicycle human 16.6% / 7.7%. Every case mean in the 5-20% band on the literature measure;
+queue discharge 83-93% of pre-breakdown flow. Written up in results/CAPDROP.md.
+**Findings:** the 2D body breaks down EARLIER, not harder — its queue discharge matches the
+1D body's, but merge disturbances (slow trucks off the acceleration lane, time-extended lane
+changes) trigger breakdown at lower flow; the stochastic-breakdown picture. Human drivers
+lower the discharge (lane drop: −150 veh/h/ln, drop 7.8% → 16.6%) — reaction time and
+relaxation, the mechanisms the capacity-drop literature names. Seed spread is wide
+(−2% to 27%), as the empirical site-to-site range is.
+**Changed:** results/capdrop.{md,json} (superseding the first run), results/CAPDROP.md,
+DEVPLAN (Stage 13 DONE), STATUS, README.
+**State:** smoke 12/12 + VALIDATION PASS @ 50455c2; capdrop as above.
+**Next:** Stage 12 leftovers (wander SD, PET share, lane-change rate); more seeds on the
+capdrop boundary; the glance-rate phase diagram; a v0.6 tag is Chris's call.
+
+
 ## 2026-09-24 — capdrop's first full run was not a result: a lane-drop gridlock and a wall bug
 
 **Done:** the first 5-case × 5-seed capacity-drop run read 35-46% at the lane drop and

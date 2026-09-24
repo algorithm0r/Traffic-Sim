@@ -274,7 +274,7 @@ and 5/6. Magnitudes ~100× empirical — Stage 12.
 - [ ] PET-conflict share (~26% of changes < 1 s) vs NGSIM lane-change headways
 **Done when:** the safety indicators land in defensible bands and the sweeps are written up.
 
-### Stage 13 — Open road, capacity drop, lane drops  [ ACTIVE ]
+### Stage 13 — Open road, capacity drop, lane drops  [ DONE ]
 - [x] Open-boundary mode (`openRoad`, both bodies): a 600-m void past the road's end
       keeps every wrap-aware scan unchanged; capacity-aware entrance; T11
 - [x] Lane drops (`laneDropAt`, bicycle): an auxiliary lane from the entrance that ends
@@ -284,5 +284,11 @@ and 5/6. Magnitudes ~100× empirical — Stage 12.
       an auxiliary lane that opens before the gore and ends there; exit-bound drivers move
       into it by route desire and slow to `exitSpeed` by the gore. T12: 484/488 exits via
       the lane, missed exits 13 → 9, collision-free
-- [ ] Merge-zone discharge into the empirical 80-95% band under the open-boundary test
+- [x] Merge-zone discharge into the empirical 80-95% band under the open-boundary test:
+      queue discharge 83-93% of pre-breakdown flow across all five cases
+- [ ] Follow-ups: more seeds per case (five pin a mean to ~±4 points); a second acceleration
+      lane length and lane-drop geometry; the stochastic-breakdown curve (breakdown
+      probability vs flow) the 2D body now exhibits
 **Done when:** capacity drop lands in the 5-20% empirical band under an open-boundary test.
+✓ 2026-09-24 (results/CAPDROP.md): case means 7.3-17.4% on the literature-style measure;
+the conservative estimator reads lower (−2 to 8%), and the truth lies between.
