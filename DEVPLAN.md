@@ -280,6 +280,9 @@ and 5/6. Magnitudes ~100× empirical — Stage 12.
 - [x] Lane drops (`laneDropAt`, bicycle): an auxiliary lane from the entrance that ends
 - [x] `capdrop.mjs`: the empirical capacity-drop protocol, merge and lane drop, both bodies
 - [x] Truck heading capped by length (the capdrop probe's ideal-point "crashes")
-- [ ] Deceleration lanes at exits
+- [x] Deceleration lanes at exits (`decelLaneLength`, bicycle, default 0 = the v0.4 control):
+      an auxiliary lane that opens before the gore and ends there; exit-bound drivers move
+      into it by route desire and slow to `exitSpeed` by the gore. T12: 484/488 exits via
+      the lane, missed exits 13 → 9, collision-free
 - [ ] Merge-zone discharge into the empirical 80-95% band under the open-boundary test
 **Done when:** capacity drop lands in the 5-20% empirical band under an open-boundary test.

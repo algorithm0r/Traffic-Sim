@@ -318,6 +318,24 @@ function run(overrides, ticks, human) {
         `rear=${s.collisions} side=${s.sideswipes}`);
 }
 
+// --- T12: deceleration lanes — exiting drivers leave the through lanes to slow down ----
+{
+  console.log('T12 deceleration lanes at exits (bicycle)');
+  const world = run({
+    bodyModel: 'bicycle', laneCount: 3, numInterchanges: 3, initialDensity: 12,
+    loopLength: 6000, demand: 800, profileVariability: 1, truckFraction: 0.1, seed: 11,
+    decelLaneLength: 250,
+  }, 12000);   // 600 s — the T7 configuration with deceleration lanes
+  const s = world.stats;
+  check('exits happen, mostly from the deceleration lane', s.exited > 300 && s.decelExits > 0.6 * s.exited,
+        `exited=${s.exited} fromDecelLane=${s.decelExits}`);
+  check('missed exits bounded', s.missedExits < 0.25 * (s.exited + 1), `missed=${s.missedExits}`);
+  check('collision-free (rear + side)', s.collisions + s.sideswipes === 0,
+        `rear=${s.collisions} side=${s.sideswipes}`);
+  const through = world.vehicles.filter((v) => v.destExit == null && !v.onRamp && v.lane === world.laneCount).length;
+  check('no through traffic in a deceleration lane', through === 0, `through-in-decel=${through}`);
+}
+
 // --- T4: renderer draws without exceptions against a recording stub ctx -----------------
 {
   console.log('T4  renderer smoke (stub canvas)');

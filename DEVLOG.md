@@ -3,6 +3,22 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-24 — deceleration lanes
+
+**Done:** `decelLaneLength` (bicycle; default 0 keeps the validated interchange behaviour):
+each exit gets an auxiliary lane that OPENS over the taper length before the gore and ends
+at it — the mirror of an acceleration lane. Exit-bound route desire counts one more change
+(into lane N), lane N is a legal target only for a driver bound for the exit whose
+deceleration lane is open there, `laneOf` admits lane N along it, and the gore imposes the
+ramp's design speed (`exitSpeed` 15 m/s) as geometry, like a lane end. Late exiters may
+still cut across from the right lane. T12 (the T7 configuration with 250-m lanes): 484 of
+488 exits from the deceleration lane, missed exits 13 → 9, collision-free, no through
+traffic in the lane.
+**State:** smoke 12/12 PASS + VALIDATION PASS.
+**Next:** the capacity-drop results (running); then decel lanes' safety effect (exit-
+related rear-end conflicts in the through lane) as a sweep.
+
+
 ## 2026-09-24 — Stage 13 begins: the open road, lane drops, and a truck heading cap
 
 **Done:** (1) Open-road mode (`openRoad`) for both bodies: the loop stays a loop, but

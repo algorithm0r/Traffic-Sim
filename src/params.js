@@ -12,6 +12,9 @@ var PARAMETERS = {
   numInterchanges: 3,      // each interchange = exit (offramp) then onramp, both on the right
   rampLength: 260,         // m of onramp acceleration lane
   rampGap: 220,            // m from an exit gore to its paired onramp gore
+  decelLaneLength: 0,      // m of deceleration lane before each exit gore (bicycle body); 0 = none,
+                           // exiting drivers leave from the right lane at speed (the v0.4 control)
+  exitSpeed: 15,           // m/s offramp design speed an exiting driver slows to by the gore
 
   // --- open-road mode (Stage 13) ---
   // false: the closed loop. true: the same road opened at x=0 — vehicles enter at the

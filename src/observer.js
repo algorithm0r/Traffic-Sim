@@ -92,6 +92,14 @@ var Observer = class Observer {
       }
     }
     for (const exit of w.exits) {
+      if (exit.decel) {
+        ctx.fillStyle = '#1b212a';
+        for (let s = 0; s < exit.decel.len; s += 20) {
+          const p = this.posToXY(g, (exit.decel.start + s) % w.L);
+          const h = g.laneH * Math.min(1, s / P.lc.taperLen);
+          ctx.fillRect(p.px, p.y + g.bandH, Math.min(20, exit.decel.len - s) * g.pxm + 1, h);
+        }
+      }
       ctx.fillStyle = '#242c37';
       for (let s = 0; s < 120; s += 40) {
         const p = this.posToXY(g, (exit.x + s) % w.L);

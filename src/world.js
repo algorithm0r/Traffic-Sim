@@ -33,7 +33,11 @@ var World = class World {
     this.onramps = [];
     for (let i = 0; i < P.numInterchanges; i++) {
       const base = ((i + 0.35) / P.numInterchanges) * this.xOut;
-      this.exits.push({ idx: i, x: base });
+      // a deceleration lane is an auxiliary lane that OPENS before the gore and ends
+      // there — the mirror of an acceleration lane (bicycle body)
+      const dl = P.bodyModel === 'bicycle' ? P.decelLaneLength : 0;
+      this.exits.push({ idx: i, x: base,
+                        decel: dl > 0 ? { start: ((base - dl) % this.L + this.L) % this.L, len: dl } : null });
       this.onramps.push({
         idx: i, x: (base + P.rampGap) % this.L, len: P.rampLength,
         vehicles: [], queue: 0, nextArrival: this.expo(P.demand), spawned: 0,
@@ -59,6 +63,7 @@ var World = class World {
       glances: 0, periphCorrections: 0,
       petSum: 0, petN: 0, lcConflicts: 0,   // post-encroachment time at lane-change completion
       injected: 0, outflow: 0,              // open road: entered at x=0, left at xOut
+      decelExits: 0,                        // exits taken from a deceleration lane
     };
 
     this.seedMainline(P.initialDensity);
@@ -681,7 +686,26 @@ var World = class World {
   // pavement end forever)
   laneOf(veh) {
     if (veh.onRamp) return this.laneCount;
-    return clamp(Math.round(veh.y / PARAMETERS.laneWidth - 0.5), 0, this.laneCount - 1);
+    const top = this.decelExitAt(veh.x) ? this.laneCount : this.laneCount - 1;
+    return clamp(Math.round(veh.y / PARAMETERS.laneWidth - 0.5), 0, top);
+  }
+  // the exit whose deceleration lane is open (past its opening taper) at x, if any
+  decelExitAt(x) {
+    for (const e of this.exits) {
+      if (!e.decel) continue;
+      const prog = this.distAhead(e.decel.start, x);
+      if (prog >= PARAMETERS.lc.taperLen && prog < e.decel.len) return e;
+    }
+    return null;
+  }
+  // offramp geometry as car-following: in the deceleration lane the gore is where the
+  // ramp's design speed must be reached (a curve, like a lane end is a wall)
+  exitRampAcc(veh) {
+    if (veh.destExit == null || veh.lane !== this.laneCount || veh.onRamp) return Infinity;
+    const e = this.exits[veh.destExit];
+    if (!e.decel) return Infinity;
+    const vx = PARAMETERS.exitSpeed, d = Math.max(this.distAhead(veh.x, e.x), 5);
+    return veh.v > vx ? -(veh.v * veh.v - vx * vx) / (2 * d) : Infinity;
   }
   bandsOverlap(a, b, margin) {
     return a[0] < b[1] + (margin || 0) && b[0] < a[1] + (margin || 0);
@@ -694,6 +718,11 @@ var World = class World {
   outerEdge(x) {
     const P = PARAMETERS, W = P.laneWidth, base = this.roadWidth();
     let edge = base;
+    for (const e of this.exits) {
+      if (!e.decel) continue;
+      const prog = this.distAhead(e.decel.start, x);
+      if (prog <= e.decel.len) edge = Math.max(edge, base + W * Math.min(1, prog / P.lc.taperLen));
+    }
     for (const r of this.onramps) {
       const prog = this.distAhead(r.x, x);
       if (prog <= r.len) return base + W;
@@ -923,8 +952,9 @@ var World = class World {
       // past the lane end (in the taper) the need is total — never let it wrap the loop
       dist = Math.max(veh.onRamp.len - this.distAhead(veh.onRamp.x, veh.x), 0);
     } else if (veh.destExit != null) {
-      dir = 1; n = this.laneCount - 1 - lane;
-      dist = this.distAhead(veh.x, this.exits[veh.destExit].x);
+      const e = this.exits[veh.destExit];
+      dir = 1; n = this.laneCount - 1 - lane + (e.decel ? 1 : 0);
+      dist = this.distAhead(veh.x, e.x);
       x0 = veh.p.exitPrep;
     }
     if (!dir) return { dir: 0, d: 0, dOpp: 0 };
@@ -989,7 +1019,10 @@ var World = class World {
     let own = null;   // own-lane neighbours, scanned once for both sides
     for (const dir of [-1, 1]) {
       const target = veh.lane + dir;
-      if (target < 0 || target > right) continue;   // auxiliary lanes are entered at the gore only
+      // auxiliary lanes are entered at their start only: an acceleration lane at its gore,
+      // a deceleration lane by a driver bound for its exit while it is open
+      const dx = target === this.laneCount && veh.destExit != null ? this.decelExitAt(veh.x) : null;
+      if (target < 0 || (target > right && !(dx && dx === this.exits[veh.destExit]))) continue;
       if (veh.p.truck && target === 0 && this.laneCount >= 3) continue;
       const dR = route.dir === dir ? route.d : (route.dir === -dir ? route.dOpp : 0);
       // cooling down: nothing voluntary can act, so evaluate the gain only where a route
@@ -1185,6 +1218,7 @@ var World = class World {
         // first half). It binds only once comfortable braking would no longer stop the
         // car in time — then it is car-following against a wall like any other.
         cmd = Math.min(cmd, this.laneEndAcc(veh));
+        cmd = Math.min(cmd, this.exitRampAcc(veh));
 
         // --- lateral decision: desire → accept / synchronize; committed → monitor ---
         this.updateDesire(veh);
@@ -1478,7 +1512,10 @@ var World = class World {
 
       if (veh.destExit != null && !veh.onRamp &&
           this.distAhead(oldX, this.exits[veh.destExit].x) <= adv) {
-        if (Math.abs(veh.y - this.laneCenter(right)) < 0.45 * P.laneWidth) {
+        const ex = this.exits[veh.destExit];
+        const inDecel = ex.decel && Math.abs(veh.y - this.laneCenter(this.laneCount)) < 0.6 * P.laneWidth;
+        if (inDecel || Math.abs(veh.y - this.laneCenter(right)) < 0.45 * P.laneWidth) {
+          if (inDecel) this.stats.decelExits++;
           veh.done = true; removed = true;
           this.stats.exited++;
           this.stats.travelTimeSum += this.time - veh.bornAt;
