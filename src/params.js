@@ -13,6 +13,19 @@ var PARAMETERS = {
   rampLength: 260,         // m of onramp acceleration lane
   rampGap: 220,            // m from an exit gore to its paired onramp gore
 
+  // --- open-road mode (Stage 13) ---
+  // false: the closed loop. true: the same road opened at x=0 — vehicles enter at the
+  // upstream boundary at `upstreamDemand` veh/h (all lanes together) and leave where the
+  // road ends, openDeadZone m short of the wrap point. That void is longer than any scan
+  // (400 m), so no vehicle sees across the boundary and the wrap-aware neighbour code is
+  // unchanged. Capacity-drop experiments need this: a closed ring cannot drain a jam.
+  openRoad: false,
+  upstreamDemand: 3000,    // veh/h entering at x=0, all lanes (open road only)
+  openDeadZone: 600,       // m of void before the wrap point (> the longest scan)
+  laneDropAt: null,        // m, open road + bicycle body: an extra rightmost lane runs from the
+                           // entrance and ENDS here (a through lane that ends — Stage 10's
+                           // lane-that-ends geometry; laneCount counts the lanes that continue)
+
   // --- body model: how decisions become motion ---
   // 'lane'    — the validated 1D control: continuous x + discrete lane, changes teleport
   // 'bicycle' — kinematic bicycle body: continuous (x, y, heading), IDM+MOBIL decisions

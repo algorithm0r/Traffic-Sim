@@ -3,6 +3,37 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-24 — Stage 13 begins: the open road, lane drops, and a truck heading cap
+
+**Done:** (1) Open-road mode (`openRoad`) for both bodies: the loop stays a loop, but
+vehicles leave at `xOut = L − openDeadZone` (600 m, longer than any scan) and enter at x=0
+from a Poisson upstream demand, so no vehicle sees across the boundary and every
+wrap-aware scan, gap and MOBIL evaluation is unchanged. The entrance admits the queue's
+head once the gap lets it enter in equilibrium at its leader's speed, never waiting for
+more than the capacity gap — the first rule (take any gap ≥ s0+1 m at the matching
+crawl) queued 38 cars at 1200 veh/h/ln, a boundary manufacturing a bottleneck. Open-road
+exits: only exits still ahead; missed exits retarget downstream or become through.
+(2) Lane drops (`laneDropAt`, bicycle): a through lane that ends is Stage 10's auxiliary
+lane starting at the entrance, fed by the boundary — no new mechanism. (3) `capdrop.mjs`:
+the empirical capacity-drop protocol (fill, 30-min demand ramp to over-capacity, 30-min
+hold, 1-min bins; breakdown = upstream speed < 60% of free for 5 bins; pre-breakdown
+capacity vs queue-discharge rate) for merge (lane/bicycle, ideal/human) and lane drop.
+(4) Its first single-seed run exposed four "crashes" at the IDEAL point, all trucks
+leaving the pavement mid-change at 9 m/s with a 10° heading (`probes/capcrash.mjs`):
+pivoting about the rear, a 16 m body's cab leads its rear sideways by len·sin ψ = 2.7 m,
+and the rear-referenced cascade (the saw-tooth fix) let the cab overshoot the target lane.
+Commanded heading is now also capped by length (len·sin ψ ≤ 1 m; trucks ≤ 3.6°, cars
+unchanged). Zero crashes on both probe seeds after.
+**Changed:** params (openRoad, upstreamDemand, openDeadZone, laneDropAt), world
+(boundaryPass, leavesRoad, nextExitAfter, eqGap/capacityGap, sampleDest, seeding,
+metrics, drop lane), agent (length heading cap), observer (void, IN/OUT, drop lane),
+smoketest T11 (open road both bodies + lane drop), capdrop.mjs, probes/capcrash.mjs.
+**State:** smoke 11/11 PASS + VALIDATION PASS (bicycle bottleneck 1260 veh/h/ln, 102% of
+lane body; T6 truck changes slower, all else identical). Full capacity-drop run (5 cases ×
+5 seeds) in progress.
+**Next:** the capacity-drop result against the 5-20% band; decel lanes at exits.
+
+
 ## 2026-09-24 — the phase diagram, re-run under the calibrated defaults, with a figure and a results note
 
 **Done:** `phase.mjs` re-run at 5 seeds per cell under the headway-budgeted default

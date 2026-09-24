@@ -150,8 +150,14 @@ var Vehicle = class Vehicle {
     const vLat = clamp((yTarget - yRef) / hLat, -S.maxLatSpeed, S.maxLatSpeed);
     // heading capped at ~11°: the lateral-speed cap alone let crawling drivers command
     // 30° (1.5 m/s lateral at 1 m/s forward) — real lane changes at walking pace are
-    // shallow, and a 30° body sweeps most of a lane
-    const psiDes = Math.asin(clamp(vLat / vSafe, -0.2, 0.2));
+    // shallow, and a 30° body sweeps most of a lane. And capped by LENGTH: pivoting about
+    // the rear, the cab leads the rear sideways by len·sin ψ; a driver keeps that under
+    // ~1 m (a 16 m truck: ≤3.6°). At 10° a truck's cab ran 2.7 m ahead of its rear and
+    // left the pavement mid-change at 9 m/s — four "crashes" at the ideal point in the
+    // open-road merge, all trucks, all this (probes/capcrash.mjs). Cars are unchanged:
+    // 1/4.8 m > 0.2, so the old cap binds first.
+    const sinMax = Math.min(0.2, 1.0 / this.len);
+    const psiDes = Math.asin(clamp(vLat / vSafe, -sinMax, sinMax));
     const psiDot = (psiDes - this.psi) / hHead;
     this.delta = clamp(Math.atan(this.wheelbase * psiDot / vSafe), -S.maxSteer, S.maxSteer);
     return this.delta;

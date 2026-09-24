@@ -282,6 +282,42 @@ function run(overrides, ticks, human) {
               `  meanV=${(m.meanV * 2.23694).toFixed(1)} mph`);
 }
 
+// --- T11: open road — the boundary injects, the road's end removes, nothing crosses ----
+{
+  console.log('T11 open road: upstream boundary + free outflow (both bodies)');
+  for (const body of ['lane', 'bicycle']) {
+    const world = run({
+      bodyModel: body, openRoad: true, upstreamDemand: 2400, laneCount: 2,
+      numInterchanges: 0, initialDensity: 0, loopLength: 5000, profileVariability: 1,
+      truckFraction: 0.1, throughFraction: 1, seed: 4,
+    }, 6000);   // 300 s
+    const s = world.stats, m = world.metrics();
+    const inVoid = world.vehicles.filter((v) => v.x >= world.xOut).length;
+    // 2400 veh/h for 300 s ≈ 200 arrivals; at 1200 veh/h/ln the entrance must keep up
+    check(`${body}: vehicles enter and leave; the entrance keeps up`,
+          s.injected > 170 && s.outflow > 50 && world.upstream.maxQueue < 10,
+          `injected=${s.injected} outflow=${s.outflow} maxQueue=${world.upstream.maxQueue}`);
+    check(`${body}: conservation (injected = on road + left)`,
+          s.injected === world.vehicles.length + s.outflow + (s.cleared || 0),
+          `${s.injected} = ${world.vehicles.length} + ${s.outflow}`);
+    check(`${body}: nothing in the void past the road's end`, inVoid === 0, `inVoid=${inVoid}`);
+    check(`${body}: collision-free`, s.collisions + (s.sideswipes || 0) === 0,
+          `rear=${s.collisions} side=${s.sideswipes || 0}`);
+  }
+  // a lane drop (bicycle): 3 lanes become 2 at 2 km; everyone in the ending lane leaves it
+  const world = run({
+    bodyModel: 'bicycle', openRoad: true, upstreamDemand: 2400, laneCount: 2,
+    laneDropAt: 2000, numInterchanges: 0, initialDensity: 0, loopLength: 5000,
+    profileVariability: 1, truckFraction: 0.1, throughFraction: 1, seed: 4,
+  }, 6000);
+  const s = world.stats;
+  const pastDrop = world.vehicles.filter((v) => v.onRamp && v.x > 2000 + 40).length;
+  check('lane drop: vehicles merge out of the ending lane', s.merges > 50 && pastDrop === 0,
+        `merges=${s.merges} stillInDroppedLanePastEnd=${pastDrop} outflow=${s.outflow}`);
+  check('lane drop: collision-free', s.collisions + s.sideswipes === 0,
+        `rear=${s.collisions} side=${s.sideswipes}`);
+}
+
 // --- T4: renderer draws without exceptions against a recording stub ctx -----------------
 {
   console.log('T4  renderer smoke (stub canvas)');

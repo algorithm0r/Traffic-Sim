@@ -274,10 +274,12 @@ and 5/6. Magnitudes ~100× empirical — Stage 12.
 - [ ] PET-conflict share (~26% of changes < 1 s) vs NGSIM lane-change headways
 **Done when:** the safety indicators land in defensible bands and the sweeps are written up.
 
-### Stage 13 — Calibration & realism refinements  [ PLANNED ]
-- [ ] Open-boundary mode (independent upstream demand) for true capacity-discharge
-      experiments alongside the closed loop
-- [ ] Lane drops and deceleration lanes at exits — both fall out of Stage 10's
-      lane-that-ends geometry
+### Stage 13 — Open road, capacity drop, lane drops  [ ACTIVE ]
+- [x] Open-boundary mode (`openRoad`, both bodies): a 600-m void past the road's end
+      keeps every wrap-aware scan unchanged; capacity-aware entrance; T11
+- [x] Lane drops (`laneDropAt`, bicycle): an auxiliary lane from the entrance that ends
+- [x] `capdrop.mjs`: the empirical capacity-drop protocol, merge and lane drop, both bodies
+- [x] Truck heading capped by length (the capdrop probe's ideal-point "crashes")
+- [ ] Deceleration lanes at exits
 - [ ] Merge-zone discharge into the empirical 80-95% band under the open-boundary test
 **Done when:** capacity drop lands in the 5-20% empirical band under an open-boundary test.

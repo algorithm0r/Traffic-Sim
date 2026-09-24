@@ -5,9 +5,9 @@
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-Stage 11 `[ DONE ]` (fallible perception — accidents emerge) / Stage 12 `[ ACTIVE ]`
-(safety validation & calibration: phase diagram done, calibration grounded, long-exposure
-runs and the figure pending)
+Stage 12 `[ ACTIVE ]` (calibration: phase diagram + figure + note done, near-crashes
+calibrated; wander SD, PET, lane-change rate open) / Stage 13 `[ ACTIVE ]` (open road and
+lane drops built; capacity-drop experiment running; decel lanes pending)
 
 ## State
 - Program goals (DEVPLAN, 2026-09-22): (1) cleaner, less rule-based 2D model; (2) traffic
@@ -23,8 +23,10 @@ runs and the figure pending)
 - Published: github.com/algorithm0r/Traffic-Sim; Pages at https://algorithm0r.github.io/Traffic-Sim/
 - DB path VERIFIED (socket transport through the research Server on mint)
 - Browser: Chris eyeballed the safety views, rotated bodies and merging 2026-09-23 —
-  "looking great". Bicycle body is now the DEFAULT (suites pin 'lane' for the 1D
-  controls). DB path UNVERIFIED
+  "looking great", and the phase figure 2026-09-24 ("really cool"). Bicycle body is the
+  DEFAULT (suites pin 'lane' for the 1D controls)
+- Open road (`openRoad`) for both bodies and lane drops (`laneDropAt`, bicycle); trucks'
+  heading capped by length (the open-road merge exposed cab overshoot at the ideal point)
 
 ## Metrics
 - Controls unchanged: FD ≈1% of analytic; capacity 1836; waves 13 km/h; ring embodiment
@@ -50,7 +52,8 @@ runs and the figure pending)
 - Realization variance 4-5× between independent 10⁵ veh·km sets — quote spreads, not Poisson
 - PET share (28% < 1 s) vs NGSIM; lane-change rate
 - Lane-change RATE uncalibrated
-- Smoke ~75 s; validate ~3 min; sweep ~5 min; phase ~25 min; calib ~10 min
+- Runtimes (main realm): smoke ~40 s; validate ~2 min; sweep ~3 min; phase ~9 min;
+  calib ~2 min per variant; capdrop ~30 min
 
 ## Next action
 Wander SD toward empirical without the held-command overshoot; the glance-rate analogue

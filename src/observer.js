@@ -55,17 +55,33 @@ var Observer = class Observer {
       ctx.fillText('▸', g.margin - 14, y + g.bandH / 2 + 3);
     }
     ctx.fillStyle = '#4a5262';
-    ctx.fillText('↻ loop', W - g.margin - 30, g.top + (P.legs - 1) * g.legPitch + g.bandH + 12);
+    if (!w.open) {
+      ctx.fillText('↻ loop', W - g.margin - 30, g.top + (P.legs - 1) * g.legPitch + g.bandH + 12);
+    } else {
+      // open road: the void past the road's end, and the two boundaries labelled
+      ctx.fillStyle = '#0b0e13';
+      for (let s = w.xOut; s < w.L; s += 40) {
+        const p = this.posToXY(g, s);
+        ctx.fillRect(p.px, p.y, Math.min(40, w.L - s) * g.pxm + 1, g.bandH);
+      }
+      const pin = this.posToXY(g, 0), pout = this.posToXY(g, w.xOut);
+      ctx.fillStyle = '#8a8f98'; ctx.font = '9px sans-serif';
+      ctx.fillText('IN ' + (w.upstream.queue ? '(queue ' + w.upstream.queue + ')' : ''), pin.px, pin.y - 3);
+      ctx.fillText('OUT', pout.px - 20, pout.y - 3);
+    }
 
     // --- ramps (drawn in ~40 m steps so a ramp crossing a leg boundary splits itself) --
     for (const ramp of w.onramps) {
-      ctx.fillStyle = '#242c37';
+      ctx.fillStyle = ramp.drop ? '#1b212a' : '#242c37';
       for (let s = 0; s < ramp.len; s += 40) {
         const p = this.posToXY(g, (ramp.x + s) % w.L);
         const frac = s / ramp.len;
-        ctx.fillRect(p.px, p.y + g.bandH, Math.min(40, ramp.len - s) * g.pxm + 1,
-                     g.rampH * (1 - 0.55 * frac));
+        // a dropped lane is a full lane until its taper; an onramp is a tapering stub
+        const h = ramp.drop ? (ramp.len - s < 120 ? g.laneH * (ramp.len - s) / 120 : g.laneH)
+                            : g.rampH * (1 - 0.55 * frac);
+        ctx.fillRect(p.px, p.y + g.bandH, Math.min(40, ramp.len - s) * g.pxm + 1, h);
       }
+      if (ramp.drop) continue;
       const p0 = this.posToXY(g, ramp.x);
       ctx.fillStyle = '#8a8f98';
       ctx.font = '9px sans-serif';

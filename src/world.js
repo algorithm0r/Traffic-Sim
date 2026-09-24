@@ -21,16 +21,31 @@ var World = class World {
     this.vehicles = [];   // mainline vehicles (ramp vehicles live on their ramp until merge)
     this.lanes = [];      // per-lane arrays sorted by x, rebuilt each tick
 
-    // interchanges, evenly spaced: exit gore at `base`, paired onramp gore rampGap later
+    // open road (Stage 13): the road ends at xOut; [xOut, L) is a void nothing enters
+    this.open = !!P.openRoad;
+    this.xOut = this.open ? this.L - P.openDeadZone : this.L;
+    this.upstream = { queue: 0, maxQueue: 0, injected: 0,
+                      nextArrival: this.open ? this.expo(P.upstreamDemand) : Infinity };
+
+    // interchanges, evenly spaced over the road: exit gore at `base`, paired onramp gore
+    // rampGap later
     this.exits = [];
     this.onramps = [];
     for (let i = 0; i < P.numInterchanges; i++) {
-      const base = ((i + 0.35) / P.numInterchanges) * this.L;
+      const base = ((i + 0.35) / P.numInterchanges) * this.xOut;
       this.exits.push({ idx: i, x: base });
       this.onramps.push({
         idx: i, x: (base + P.rampGap) % this.L, len: P.rampLength,
         vehicles: [], queue: 0, nextArrival: this.expo(P.demand), spawned: 0,
       });
+    }
+
+    // a lane drop is an auxiliary lane that starts at the entrance and ends — the same
+    // object as an onramp's acceleration lane, fed by the upstream boundary instead of
+    // its own arrivals (bicycle body; the 1D lane body models ramps with its own rules)
+    if (this.open && P.laneDropAt && P.bodyModel === 'bicycle') {
+      this.onramps.push({ idx: this.onramps.length, x: 0, len: P.laneDropAt, drop: true,
+                          vehicles: [], queue: 0, nextArrival: Infinity, spawned: 0 });
     }
 
     this.detectors = P.detectorFracs.map((f) => ({ x: f * this.L, count: 0, speedSum: 0 }));
@@ -43,6 +58,7 @@ var World = class World {
       mergeCrashes: 0, cleared: 0, nearCrashes: 0, evasiveNear: 0, lateralConflicts: 0,
       glances: 0, periphCorrections: 0,
       petSum: 0, petN: 0, lcConflicts: 0,   // post-encroachment time at lane-change completion
+      injected: 0, outflow: 0,              // open road: entered at x=0, left at xOut
     };
 
     this.seedMainline(P.initialDensity);
@@ -75,6 +91,15 @@ var World = class World {
   sampleDest(fromX) {
     const n = this.exits.length;
     if (!n) return null;
+    if (this.open) {   // only exits still ahead on the road; through traffic equally likely
+      const ahead = [];
+      for (let i = 0; i < n; i++) {
+        const x = this.exits[i].x;
+        if (x > fromX + 200 && x < this.xOut) ahead.push(i);
+      }
+      const k = Math.floor(this.rng() * (ahead.length + 1));
+      return k < ahead.length ? ahead[k] : null;
+    }
     let first = 0, best = Infinity;
     for (let i = 0; i < n; i++) {
       const d = this.distAhead((fromX + 200) % this.L, this.exits[i].x);
@@ -85,6 +110,22 @@ var World = class World {
   }
 
   distAhead(from, to) { return ((to - from) % this.L + this.L) % this.L; }
+
+  // the exit a driver who missed exit i retargets to: the next one around the loop, or on
+  // an open road the next one still ahead (none → through traffic)
+  nextExitAfter(i) {
+    if (!this.open) return (i + 1) % this.exits.length;
+    const x = this.exits[i].x;
+    let best = null;
+    for (let j = 0; j < this.exits.length; j++) {
+      const xj = this.exits[j].x;
+      if (xj > x && xj < this.xOut && (best == null || xj < this.exits[best].x)) best = j;
+    }
+    return best;
+  }
+
+  // road length vehicles actually occupy (the open road stops at xOut)
+  roadLength() { return this.xOut; }
 
   // bumper-to-bumper gap from follower f to leader l (wrap-aware). ONLY valid when l is
   // genuinely ahead of f — a negative (overlapping) gap wraps to ~L and reads as free
@@ -154,9 +195,9 @@ var World = class World {
   }
 
   seedMainline(kPerKmLane) {
-    const n = Math.round(kPerKmLane * this.L / 1000);
+    const n = Math.round(kPerKmLane * this.xOut / 1000);
     if (n <= 0) return;
-    const spacing = this.L / n;
+    const spacing = this.xOut / n;
     const byLane = [];
     for (let lane = 0; lane < this.laneCount; lane++) {
       const arr = [];
@@ -182,7 +223,7 @@ var World = class World {
       for (let i = 0; i < arr.length; i++) {
         const lead = arr[(i + 1) % arr.length];
         const gap = (i === arr.length - 1)
-          ? lead.x + this.L - lead.len - arr[i].x
+          ? (this.open ? 1e9 : lead.x + this.L - lead.len - arr[i].x)
           : lead.x - lead.len - arr[i].x;
         arr[i].v = Math.min(arr[i].p.desiredSpeed(),
                             this.equilibriumSpeed(arr[i].p, Math.max(gap, 0.5)));
@@ -248,6 +289,7 @@ var World = class World {
       this.sortAll();
       this.decisionPass2D(dt);
       this.integratePass2D(dt);
+      this.boundaryPass(dt);
       this.rampSpawn2D(dt);
       this.collisionPass2D();
       return;
@@ -257,7 +299,87 @@ var World = class World {
     this.sortLanes();
     this.accelPass();
     this.integratePass(dt);
+    this.boundaryPass(dt);
     this.rampPass(dt);
+  }
+
+  // ---------- open road: the upstream boundary (Stage 13) ----------
+  // Poisson arrivals at upstreamDemand wait in an entrance queue. The head of the queue
+  // enters the lane with the most room once the gap lets it enter IN EQUILIBRIUM at its
+  // leader's speed — but it never waits for more than the capacity gap, so the entrance
+  // can pass capacity flow. Taking any gap of s0 + 1 m at the matching crawl turned the
+  // entrance into a queue discharging from standstill (the first T11 run queued 38 cars
+  // at 1200 veh/h/ln): a boundary must not manufacture a bottleneck. A jam that spills
+  // back to x=0 makes the leader slow, the gap needed small, and entry slow — and the
+  // queue grows: unserved demand, measured. (Removal at xOut is in the integrators.)
+  eqGap(prof, v) {
+    const v0 = prof.desiredSpeed();
+    return (prof.s0 + v * prof.T) / Math.sqrt(Math.max(1 - Math.pow(v / v0, PARAMETERS.delta), 1e-3));
+  }
+  capacityGap(prof) {   // the gap at which the profile's equilibrium flow peaks
+    let best = prof.s0 + 1, bestQ = 0;
+    for (let s = prof.s0 + 1; s < 150; s += 2) {
+      const q = this.equilibriumSpeed(prof, s) / (s + prof.len);
+      if (q > bestQ) { bestQ = q; best = s; }
+    }
+    return best;
+  }
+  boundaryPass(dt) {
+    if (!this.open) return;
+    const P = PARAMETERS, U = this.upstream;
+    U.nextArrival -= dt;
+    while (U.nextArrival <= 0) { U.queue++; U.nextArrival += this.expo(P.upstreamDemand); }
+    U.maxQueue = Math.max(U.maxQueue, U.queue);
+    if (U.queue <= 0) return;
+    const bicycle = P.bodyModel === 'bicycle';
+    const drop = this.onramps.find((r) => r.drop) || null;
+    const nLanes = this.laneCount + (drop ? 1 : 0);
+    const room = [];
+    for (let lane = 0; lane < nLanes; lane++) room.push({ lane, gap: Infinity, lead: null });
+    for (const v of this.vehicles) {
+      if (v.done || v.x > 400) continue;
+      const g = v.x - v.len;                 // bumper gap from the entrance line
+      for (const r of room) {
+        const occ = bicycle ? this.bandsOverlap(v.band(), this.laneBand(r.lane), -0.3)
+                            : v.lane === r.lane;
+        if (occ && g < r.gap) { r.gap = g; r.lead = v; }
+      }
+    }
+    room.sort((a, b) => b.gap - a.gap);
+    for (const r of room) {
+      if (U.queue <= 0) break;
+      if (!U.head) {   // the head of the queue keeps its identity while it waits
+        const prof = this.sampleProfile();
+        U.head = { prof, sCap: this.capacityGap(prof),
+                   dest: (this.rng() < P.throughFraction) ? null : this.sampleDest(0) };
+      }
+      const { prof, sCap, dest } = U.head;
+      if (prof.truck && r.lane === 0 && this.laneCount >= 3) continue;   // trucks keep right
+      const v0 = prof.desiredSpeed();
+      let v = v0;
+      if (isFinite(r.gap)) {
+        const need = Math.min(this.eqGap(prof, Math.min(r.lead.v, 0.9 * v0)), sCap);
+        if (r.gap < Math.max(need, prof.s0 + 1)) continue;
+        v = Math.min(v0, this.equilibriumSpeed(prof, r.gap),
+                     r.lead.v + Math.sqrt(2 * prof.b * Math.max(r.gap - prof.s0, 0)));
+      }
+      U.head = null;
+      const veh = new Vehicle(this.nextId++, 0, r.lane, v, prof, dest, this.time);
+      if (drop && r.lane === this.laneCount) veh.onRamp = drop;
+      this.vehicles.push(veh);
+      veh.allIdx = 0;   // placeholder until the next sort
+      U.queue--; U.injected++; this.stats.injected++;
+    }
+  }
+
+  // open road: a vehicle whose front crossed the road's end leaves the simulation
+  leavesRoad(veh, oldX, advX) {
+    if (!this.open || this.distAhead(oldX, this.xOut) > advX) return false;
+    veh.done = true;
+    this.stats.outflow++;
+    this.stats.travelTimeSum += this.time - veh.bornAt;
+    this.stats.travelTimeN++;
+    return true;
   }
 
   laneChangePass(dt) {
@@ -398,6 +520,7 @@ var World = class World {
       for (const d of this.detectors) {
         if (this.distAhead(oldX, d.x) <= adv) { d.count++; d.speedSum += vNew; }
       }
+      if (this.leavesRoad(veh, oldX, adv)) { removed = true; continue; }
 
       if (veh.destExit != null && this.distAhead(oldX, this.exits[veh.destExit].x) <= adv) {
         if (veh.lane === this.laneCount - 1) {
@@ -407,7 +530,7 @@ var World = class World {
           this.stats.travelTimeN++;
         } else {
           this.stats.missedExits++;
-          veh.destExit = (veh.destExit + 1) % this.exits.length;
+          veh.destExit = this.nextExitAfter(veh.destExit);
         }
       }
     }
@@ -1351,6 +1474,8 @@ var World = class World {
         if (this.distAhead(oldX, d.x) <= adv) { d.count++; d.speedSum += vNew; }
       }
 
+      if (this.leavesRoad(veh, oldX, this.distAhead(oldX, veh.x))) { removed = true; continue; }
+
       if (veh.destExit != null && !veh.onRamp &&
           this.distAhead(oldX, this.exits[veh.destExit].x) <= adv) {
         if (Math.abs(veh.y - this.laneCenter(right)) < 0.45 * P.laneWidth) {
@@ -1360,7 +1485,7 @@ var World = class World {
           this.stats.travelTimeN++;
         } else {
           this.stats.missedExits++;
-          veh.destExit = (veh.destExit + 1) % this.exits.length;
+          veh.destExit = this.nextExitAfter(veh.destExit);
         }
       }
     }
@@ -1373,6 +1498,7 @@ var World = class World {
   rampSpawn2D(dt) {
     const P = PARAMETERS;
     for (const ramp of this.onramps) {
+      if (ramp.drop) continue;   // a lane drop is fed by the upstream boundary
       ramp.nextArrival -= dt;
       while (ramp.nextArrival <= 0) { ramp.queue++; ramp.nextArrival += this.expo(P.demand); }
       if (ramp.queue <= 0) continue;
@@ -1486,7 +1612,7 @@ var World = class World {
     let vSum = 0, rampCount = 0;
     for (const veh of this.vehicles) {
       vSum += veh.v;
-      if (bicycle && veh.onRamp) rampCount++;
+      if (bicycle && veh.onRamp && !veh.onRamp.drop) rampCount++;
     }
     let queueTotal = 0;
     for (const r of this.onramps) {
@@ -1497,7 +1623,8 @@ var World = class World {
     return {
       count, rampCount, queueTotal,
       meanV: this.vehicles.length ? vSum / this.vehicles.length : 0,
-      density: count / this.laneCount / (this.L / 1000),
+      density: count / this.laneCount / (this.roadLength() / 1000),
+      upstreamQueue: this.upstream.queue,
       stats: Object.assign({}, this.stats),
     };
   }
