@@ -3,12 +3,13 @@
 // the leader cutting in (changing or merging into the follower's lane), the follower itself
 // changing, or plain following; and where on the road (relative to the gore at 3160 m).
 // The lane body has none in this experiment; the bicycle body has 6-18 per 1000 veh·km.
-//   node probes/mergeconflict.mjs [--case merge-bicycle-ideal] [--seeds 1,2] [--gap follower]
+//   node probes/mergeconflict.mjs [--case merge-bicycle-ideal] [--seeds 1,2] [--gap follower] [--params JSON]
 import { loadSim } from '../headless.mjs';
 const argv = process.argv.slice(2);
 const flag = (n, d) => { const i = argv.indexOf('--' + n); return i >= 0 ? argv[i + 1] : d; };
 const caseName = flag('case', 'merge-bicycle-ideal'), seeds = flag('seeds', '1,2').split(',').map(Number);
 const gap = flag('gap', null);
+const params = JSON.parse(flag('params', '{}'));   // e.g. '{"coolness":0.99}'
 const human = caseName.endsWith('human');
 const ctx = loadSim(); const P = ctx.PARAMETERS;
 const BASE = JSON.parse(JSON.stringify(P)), BASE_ARCH = JSON.parse(JSON.stringify(ctx.ARCHETYPES));
@@ -27,6 +28,9 @@ for (const seed of seeds) {
   for (const k of Object.keys(ctx.ARCHETYPES)) {
     Object.assign(ctx.ARCHETYPES[k], JSON.parse(JSON.stringify(BASE_ARCH[k])));
     if (!human) Object.assign(ctx.ARCHETYPES[k], JSON.parse(JSON.stringify(ctx.IDEAL_CONTROL)));
+  }
+  for (const [key, val] of Object.entries(params)) {   // --params: variants, nested objects merged
+    if (val && typeof val === 'object' && !Array.isArray(val)) Object.assign(P[key], val); else P[key] = val;
   }
   if (gap === 'follower') {
     const bOf = (a) => Array.isArray(a.b) ? a.b[0] : a.b;
@@ -70,7 +74,7 @@ for (const seed of seeds) {
   }
   console.log(`seed ${seed}: ${total} episodes so far`);
 }
-console.log(`\n${caseName}${gap ? ' gap=' + gap : ''}, seeds ${seeds}: ${total} near-crashes (${(1000 * total / km).toFixed(2)} /1000 veh·km), ${evasive} evasive`);
+console.log(`\n${caseName}${gap ? ' gap=' + gap : ''}${Object.keys(params).length ? ' ' + JSON.stringify(params) : ''}, seeds ${seeds}: ${total} near-crashes (${(1000 * total / km).toFixed(2)} /1000 veh·km), ${evasive} evasive`);
 for (const kind of [true, false]) {
   const o = onsets.filter((e) => e.ramp === kind); if (!o.length) continue;
   const f = (k) => q(o, (e) => e[k]).map((x) => isFinite(x) ? x.toFixed(1) : '–').join(' / ');

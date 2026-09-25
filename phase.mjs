@@ -2,7 +2,7 @@
 // 3-lane 4 km ring. For each cell: mean speed, detector speed std (wave onset), near-crash
 // and crash rates per 1000 veh·km, averaged over seeds. Writes results/phase.json and
 // results/phase.md. ~25 min at the default grid.
-//   node phase.mjs [--secs 600] [--seeds 5,6,7] [--quick]
+//   node phase.mjs [--secs 600] [--seeds 5,6,7] [--quick] [--params JSON] [--out name]
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -14,6 +14,8 @@ const flag = (n, d) => { const i = argv.indexOf('--' + n); return i >= 0 ? argv[
 const secs = parseInt(flag('secs', '600'), 10);
 const seeds = flag('seeds', '5,6,7').split(',').map(Number);
 const quick = argv.includes('--quick');
+const params = JSON.parse(flag('params', '{}'));
+const outName = flag('out', 'phase');
 
 const ctx = loadSim();   // main realm: ~4× faster than a vm context, same numbers
 const P = ctx.PARAMETERS;
@@ -29,6 +31,9 @@ function run(density, tReactX, seed) {
     initialDensity: density, profileVariability: 1, truckFraction: 0.1, seed,
     detectorFracs: [0.5],
   });
+  for (const [key, val] of Object.entries(params)) {   // --params: variants, nested objects merged
+    if (val && typeof val === 'object' && !Array.isArray(val)) Object.assign(P[key], val); else P[key] = val;
+  }
   for (const k of Object.keys(ctx.ARCHETYPES)) {
     const a = Object.assign(ctx.ARCHETYPES[k], JSON.parse(JSON.stringify(BASE_ARCH[k])));
     a.tReact = [a.tReact[0] * tReactX, a.tReact[1] * tReactX];
@@ -76,8 +81,8 @@ for (const k of densities) for (const tr of tReacts) {
     `   [${done}/${total}, ${((Date.now() - t0) / 60000).toFixed(1)} min]`);
 }
 
-const out = { generated: new Date().toISOString(), secs, seeds, densities, tReacts, cells };
-writeFileSync(path.join(__dirname, 'results', 'phase.json'), JSON.stringify(out, null, 1));
+const out = { generated: new Date().toISOString(), secs, seeds, densities, tReacts, params, cells };
+writeFileSync(path.join(__dirname, 'results', outName + '.json'), JSON.stringify(out, null, 1));
 
 // markdown grids: mean speed, detector speed std, near-crash rate
 const grid = (key, fmt) => {
@@ -88,10 +93,10 @@ const grid = (key, fmt) => {
   }
   return md;
 };
-let md = `# Reaction time × density phase diagram\n\n${secs} s runs, 3-lane 4 km ring, human archetypes, seeds ${seeds.join(',')}; cells are seed means. Generated ${out.generated}.\n\n`;
+let md = `# Reaction time × density phase diagram\n\n${secs} s runs, 3-lane 4 km ring, human archetypes, seeds ${seeds.join(',')}; cells are seed means.${Object.keys(params).length ? ' Variant ' + JSON.stringify(params) + '.' : ''} Generated ${out.generated}.\n\n`;
 md += '## Mean speed (mph)\n\n' + grid('meanV', (v) => v.toFixed(0)) + '\n';
 md += '## Detector speed std after warm-up (m/s) — wave onset\n\n' + grid('detStd', (v) => v.toFixed(1)) + '\n';
 md += '## Near-crashes per 1000 veh·km\n\n' + grid('near', (v) => v.toFixed(2)) + '\n';
 md += '## Crashes per 1000 veh·km (SHRP2 all-severity ≈ 0.027)\n\n' + grid('crash', (v) => v.toFixed(3)) + '\n';
-writeFileSync(path.join(__dirname, 'results', 'phase.md'), md);
-console.log('wrote results/phase.json and results/phase.md');
+writeFileSync(path.join(__dirname, 'results', outName + '.md'), md);
+console.log(`wrote results/${outName}.json and results/${outName}.md`);

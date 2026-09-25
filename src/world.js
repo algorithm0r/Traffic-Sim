@@ -1228,7 +1228,7 @@ var World = class World {
         // --- decision layer: perceive (noisily), command (imperfectly), hold ---
         const sense = this.perceive(veh, lead ? Math.max(this.gapX(veh, lead), 0.1) : null,
                                     lead ? lead.v : 0);
-        let cmd = veh.idmAcc(sense.gap, sense.vLead,
+        let cmd = veh.accCmd(sense.gap, sense.vLead, lead ? lead.acc : 0,
                              leadClaim ? this.headwayAt(veh, lead.desire) : null);
 
         // the lane end: a stopped obstacle, but one the driver expects to be gone from

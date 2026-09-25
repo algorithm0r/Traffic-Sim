@@ -1,12 +1,12 @@
 # Traffic Sim — STATUS
 *One screen. The current pulse. Overwritten, never appended — for history read DEVLOG.*
 
-**Updated:** 2026-09-25 (Stage 16 done) — refreshed every session close; may carry unverified claims
+**Updated:** 2026-09-25 (Stage 17 in progress) — refreshed every session close; may carry unverified claims
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-Stage 16 `[ DONE ]` (side by side with SUMO) / Stage 17 `[ PLANNED ]` (merge and weaving
-safety: IDM's cut-in response first, then merge behaviour)
+Stage 17 `[ IN PROGRESS ]` (merge and weaving safety). Enhanced IDM tried and rejected
+(results/eidm-note.md); next, the cut-ins themselves
 
 ## State
 - Program goals (DEVPLAN, 2026-09-22): (1) cleaner, less rule-based 2D model; (2) traffic
@@ -43,10 +43,12 @@ safety: IDM's cut-in response first, then merge behaviour)
 - vs SUMO (results/sumo-note.md): same capacity with matched IDM; drop ours 10-15%, LC2013
   −2-3% (ideal) / 7-10% (action step), SL2015 19-40% (deadlocks 6/20); TTC<1.5 conflicts per
   1000 veh·km LC2013 ~1, ours 6-18, SL2015 33-89. Ours are cut-ins braked by IDM saturating
+- Enhanced IDM (coolness 0.99, not adopted): evasive braking halves, human crashes double
+  (29 → 62), phase boundary moves out (over-stabilised)
 
 ## Branches / tags
-- `main` tracks origin/main; tags v0.1-v0.4.1, v0.5, v0.6, v0.7 (2026-09-24), **v0.8** (2026-09-25:
-  Stage 15, safety exposure by regime)
+- `main` tracks origin/main; tags v0.1-v0.4.1, v0.5-v0.8, **v0.9** (2026-09-25: Stage 16, SUMO
+  comparison)
 
 ## Open
 - Realization variance 4-5× between independent 10⁵ veh·km sets — quote spreads, not Poisson
@@ -56,9 +58,9 @@ safety: IDM's cut-in response first, then merge behaviour)
 - Workstation load: keep batches ≤4 processes (an 18-process batch hard-reset the machine)
 
 ## Next action
-Stage 17: merge and weaving safety — first IDM's cut-in over-reaction (Enhanced IDM's
-constant-acceleration heuristic), then empirical onramp merge behaviour, mainline anticipation,
-crash typing. Offer v0.9 (Stage 16). Blocked item: a manual-driving glance-duration
+Stage 17: the cut-ins — why slow vehicles enter faster lanes at 11-18 m/s closing, checked
+against NGSIM lane-change closing speeds; then onramp merge behaviour, mainline anticipation,
+crash typing. Blocked item: a manual-driving glance-duration
 reference for the attention tail.
 
 ## Blockers

@@ -3,6 +3,33 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-25 — Stage 17 (1): the Enhanced IDM tried and rejected
+
+**Done:** v0.9 tagged. (1) The Enhanced IDM's constant-acceleration heuristic (Kesting,
+Treiber & Helbing 2010) was added as `coolness` (agent.accCmd; driving command only; MOBIL and
+gap acceptance still use plain IDM; the leader's acceleration is the brake-light cue; default
+0 = pure IDM, bit-identical, smoke PASS). A 0/0 in CAH's first branch for a stopped leader was
+caught on canonical cases and guarded. (2) At 0.99, evasive braking halves (merge, 2 seeds:
+262→177 ideal, 554→315 human). IDM-saturated braking falls from 202 to 40 episodes, but
+TTC < 1.5 near-crashes don't move: the cut-in's geometry sets them. (3) Crashes with human
+drivers double: 8→19 on seeds 1-5, replicated 21→43 on fresh seeds 6-15. Ideal drivers are
+unchanged. The capacity drop survives (11.5-17%). (4) Phase diagram: the boundary moves out (1.6×:
+only k=30 breaks; 2.0×: k=16-20 steady) and the broken cells get much safer, but the dense edge
+worsens (k=30×1.3: 0→0.69 crashes). Congestion is over-stabilised relative to observed
+stop-and-go. (5) Crash traces (probes/eidmcrash.mjs): high-closing cut-ins where the reflex
+fires within 0.5 s at 9 m/s² and runs out of room. The car-following law has no say in the
+last second, so the effect is indirect. The mechanism is untraced; two hypotheses are written
+down. One trace shows an impossible speed jump (probably a probe artifact); it is
+not interpreted. **Not adopted.** Also: exposure.mjs now defaults to 3 workers; phase.mjs gained
+--params/--out.
+**Changed:** src/agent.js (accCmd), src/world.js (driving command via accCmd), src/params.js
+(coolness 0), phase.mjs, exposure.mjs, probes/mergeconflict.mjs (--params), probes/eidmcrash.mjs
+(new), results/ (eidm-note, phase-eidm, capdrop-eidm-*, capdrop-rep-*, mergeconflict-eidm*),
+DEVPLAN (Stage 17 in progress; a cut-in item added), STATUS.
+**State:** default model unchanged (coolness 0); smoke PASS.
+**Next:** the cut-ins themselves. Why do slow vehicles enter faster lanes at 11-18 m/s
+closing, and do real drivers? (NGSIM lane-change closing speeds.)
+
 ## 2026-09-25 — Stage 16: the capacity-drop experiment side by side with SUMO
 
 **Done:** v0.8 tagged. (1) `tools/sumo_capdrop.py` rebuilds capdrop.mjs in SUMO 1.27.1 (pip

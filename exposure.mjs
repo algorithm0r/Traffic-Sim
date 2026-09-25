@@ -8,7 +8,7 @@
 // regimes): heavily congested flow 83% rear-end; heavy variable free flow 79% rear-end +
 // lane-change; light free flow 47% lane-change crashes (via FHWA's SHRP2 freeway-operations
 // report, fig. 4).
-//   node exposure.mjs [--ks 8,14,20,28,36] [--seeds-per-k 40] [--secs 1800] [--workers 16]
+//   node exposure.mjs [--ks 8,14,20,28,36] [--seeds-per-k 40] [--secs 1800] [--workers 3]
 import { fork } from 'child_process';
 import { writeFileSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -63,7 +63,7 @@ if (argv[0] === '--worker') {
   const per = +flag('seeds-per-k', '40'), secs = +flag('secs', '1800');
   const params = JSON.parse(flag('params', '{}'));
   const out = flag('out', 'exposure');
-  const nw = Math.min(+flag('workers', String(Math.max(1, os.cpus().length - 4))), ks.length * per);
+  const nw = Math.min(+flag('workers', '3'), ks.length * per);   // a workstation: keep it light (an 18-process batch hard-reset it)
   const jobs = [];
   for (const k of ks) for (let i = 0; i < per; i++) jobs.push({ k, seed: 1000 + i, secs, params });
   const results = []; const t0 = Date.now();

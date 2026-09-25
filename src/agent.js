@@ -176,4 +176,27 @@ var Vehicle = class Vehicle {
     const acc = p.a * (free - (sStar / Math.max(s, 0.1)) * (sStar / Math.max(s, 0.1)));
     return Math.max(acc, -PARAMETERS.bMax);
   }
+
+  // The driving command: IDM, optionally blended with the constant-acceleration heuristic
+  // (the Enhanced IDM / ACC model; Kesting, Treiber & Helbing 2010). IDM's (s*/s)² term
+  // treats any close cut-in as an emergency — the Stage 16 probe found 77-80% of the fleet's
+  // ≥0.5 g braking was IDM saturating at bMax on cut-ins that needed ~3 m/s². CAH asks what
+  // deceleration actually avoids a crash if the leader keeps its acceleration; when IDM
+  // brakes harder than that, the command relaxes toward CAH (coolness c; 0 = pure IDM). In
+  // steady following IDM ≥ CAH, so equilibria — and the fundamental diagram — are unchanged.
+  // aL is the leader's acceleration (brake lights), capped at my own a.
+  accCmd(s, vL, aL, T) {
+    const aIDM = this.idmAcc(s, vL, T), c = PARAMETERS.coolness;
+    if (!c || s == null) return aIDM;
+    const p = this.p, v = this.v, sg = Math.max(s, 0.1), aLt = Math.min(aL, p.a);
+    // first branch: the leader stops before the gap closes (needs a positive denominator —
+    // a stopped, non-accelerating leader falls to the second branch, not 0/0)
+    const den = vL * vL - 2 * sg * aLt;
+    const aCAH = vL * (v - vL) <= -2 * sg * aLt && den > 1e-9
+      ? v * v * aLt / den
+      : aLt - (v > vL ? (v - vL) * (v - vL) : 0) / (2 * sg);
+    if (aIDM >= aCAH) return aIDM;
+    const acc = (1 - c) * aIDM + c * (aCAH + p.b * Math.tanh((aIDM - aCAH) / p.b));
+    return Math.max(acc, -PARAMETERS.bMax);
+  }
 };

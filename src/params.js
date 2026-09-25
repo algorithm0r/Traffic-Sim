@@ -123,6 +123,8 @@ var PARAMETERS = {
 
   // --- driver model shared constants (IDM + MOBIL) ---
   delta: 4,                // IDM acceleration exponent (Treiber et al. 2000)
+  coolness: 0,             // Enhanced IDM blend toward the constant-acceleration heuristic
+                           // (Kesting, Treiber & Helbing 2010 use 0.99); 0 = pure IDM
   bMax: 9,                 // m/s^2 physical emergency-braking cap
   laneChangeCooldown: 4,   // s between lane changes (≈ duration of a real change)
   mobilThreshold: 0.1,     // m/s^2 MOBIL switching threshold (Kesting et al. 2007)

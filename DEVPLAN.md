@@ -372,7 +372,7 @@ compared; the model over-produces lane-change crashes (Stage 17).
       (`probes/mergeconflict.mjs`). Written up in `results/sumo-note.md`.
 **Done when:** the capacity-drop result is reported for this model and SUMO side by side. ✓
 
-### Stage 17 — Merge and weaving safety  [ PLANNED ]
+### Stage 17 — Merge and weaving safety  [ IN PROGRESS ]
 Stage 15's open finding: at interchanges three quarters or more of crashes involve a lane
 change or merge at every density (Golob: rear-ends prevail at 54-83% in congestion), and
 evasive near-crashes run far above naturalistic rates. The merge process itself, not
@@ -380,9 +380,13 @@ attention, drives it.
 Stage 16 sharpened it: our TTC < 1.5 conflicts at bottlenecks are cut-ins (6-18 per 1000 veh·km
 vs SUMO LC2013's ~1), and 77-80% of their ≥ 0.5 g braking is IDM's (s*/s)² term saturating at
 bMax on a close cut-in, not the reflex. Stricter gap acceptance does not reduce them.
-- [ ] IDM's response to cut-ins: the Enhanced IDM constant-acceleration heuristic (Kesting,
-      Treiber & Helbing 2010) — an established fix for exactly this over-reaction; re-measure
-      conflicts, capacity drop and the phase diagram
+- [x] IDM's response to cut-ins: the Enhanced IDM constant-acceleration heuristic (Kesting,
+      Treiber & Helbing 2010) — tried (`coolness`), NOT adopted: hard braking halves but human
+      drivers' crashes double (29 → 62, replicated on fresh seeds) and congestion
+      over-stabilises (results/eidm-note.md). The conflicts are set by the cut-ins themselves
+- [ ] The cut-ins: why slow vehicles enter faster lanes at 11-18 m/s closing (lane-speed
+      differentials, incentive vs safety in MOBIL/LMRS, whether real drivers accept such
+      closing speeds — NGSIM lane-change closing-speed distribution)
 - [ ] How real mergers behave at the end of an acceleration lane: yield and wait vs force in
       (empirical merge-location and accepted-gap data at freeway onramps)
 - [ ] Mainline anticipation of mergers beyond the claim (earlier yielding and lane changes
