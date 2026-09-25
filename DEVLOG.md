@@ -3,6 +3,38 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-25 — Stage 16: the capacity-drop experiment side by side with SUMO
+
+**Done:** v0.8 tagged. (1) `tools/sumo_capdrop.py` rebuilds capdrop.mjs in SUMO 1.27.1 (pip
+eclipse-sumo): same geometry, demand and fleet. SUMO's IDM gets our archetypes, and there are
+three driver settings: ideal, action step = tReact, and SUMO default (Krauss). LC2013 and SL2015
+are run with no teleporting. SSM supplies the conflicts. Two silent SUMO pitfalls:
+departSpeed=max caps a mixed fleet near 1,800 veh/h (fix: departSpeed="last" at the edge start;
+departPos="last" silently inserts mid-road), and an unsorted route file never loaded the ramp
+flow. (2) A threshold-free measure (peak 5-min flow before minute 45 vs mean over 45-65) scores
+both models identically. SUMO's congested state hovers at the 60%-speed breakdown line.
+(3) Results: matched IDM gives matched capacity (1,466-1,540 vs ours 1,432-1,595 veh/h/lane).
+Drop: ours 10-15%, LC2013 −2 to 3% ideal and 7-10% with an action step, SL2015 19-40%.
+Conflicts (TTC < 1.5 per 1000 veh·km): LC2013 ~1, ours 6-18, SL2015 33-89. SL2015 deadlocked
+in 6 of 20 runs and 6 more crawled to the 90-min cap. SUMO defaults carry ~45% more and don't
+break down. (4) Mechanisms: `capdrop.mjs --gap follower` (LC2013-style acceptance) cuts our
+drop by a quarter to a third; lane vs bicycle body makes no difference. `probes/mergeconflict.mjs`:
+our conflicts are cut-ins, and 77-80% of their ≥0.5 g braking is IDM saturating at bMax, not
+the reflex. Stricter acceptance raises conflicts (mergers wait for the lane end). Corrections
+made on the way: a first reading that the reflex fires on a 0.8 s time gap (it is 0.8 m); "the
+follower gap halves the drop" (rule-based measure; the threshold-free measure says a quarter to
+a third); a batch of false SL2015 "deadlocks" (killed runs reused because SUMO creates stats.xml
+at startup). The lane body's zero near-crashes are "not measured" (its 1D passes keep no
+bookkeeping).
+**Changed:** tools/sumo_capdrop.py (new), capdrop.mjs (vehKm/near/evasive per run; --params,
+--out, --gap follower), probes/mergeconflict.mjs (new), results/ (sumo-capdrop.*, sumo-note,
+capdrop-gapf-*, mergeconflict-*.txt; capdrop regenerated, unchanged), DEVPLAN (16 done;
+Stage 17 gains the Enhanced-IDM item), README, STATUS.
+**State:** capdrop rerun reproduces the prior table exactly. The machine hard-reset once under
+my 18-process load (Kernel-Power 41). Batches on this workstation are now held to ≤4 processes.
+**Next:** Stage 17, starting with IDM's cut-in response (Enhanced IDM's constant-acceleration
+heuristic), then merge behaviour.
+
 ## 2026-09-25 — Stage 15: safety exposure by traffic regime; signal-aware glances
 
 **Done:** v0.7 tagged. (1) References: Golob, Recker & Alvarez's regime-classified Orange County

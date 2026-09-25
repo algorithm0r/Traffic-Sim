@@ -1,0 +1,38 @@
+seed 1: 199 episodes so far
+seed 2: 387 episodes so far
+
+merge-bicycle-ideal gap=follower, seeds 1,2: 387 near-crashes (8.69 /1000 veh·km), 337 evasive
+
+  ramp merger leaders at onset (n=228; 10th / 50th / 90th percentile):
+    bumper gap m           1.5 / 6.6 / 11.5
+    closing m/s            2.6 / 5.3 / 11.1
+    follower speed         3.0 / 6.8 / 12.4
+    leader speed           0.2 / 0.9 / 3.4
+    leader accel           -1.4 / 0.3 / 1.2
+    required decel         1.1 / 2.2 / 7.8
+    s since change began   0.1 / 1.4 / 1.8
+    leader to lane end m   4.7 / 33.9 / 255.8
+
+  mainline cut-in leaders at onset (n=106; 10th / 50th / 90th percentile):
+    bumper gap m           1.1 / 6.2 / 11.4
+    closing m/s            2.3 / 6.4 / 10.9
+    follower speed         5.8 / 11.8 / 28.5
+    leader speed           0.8 / 3.5 / 19.2
+    leader accel           -0.5 / 0.2 / 0.9
+    required decel         1.2 / 2.9 / 9.0
+    s since change began   0.2 / 0.4 / 0.7
+    leader to lane end m   – / – / –
+
+  evasive episodes braked by the reflex: 68, hardest decel median 9.0 m/s²
+  evasive episodes braked by the car-following law: 269, hardest decel median 9.0 m/s²
+
+   174 ( 45%)  evasive 168   leader merging from ramp | merge area
+    59 ( 15%)  evasive  58   leader cutting in (lane change) | upstream (> 300 m before gore)
+    54 ( 14%)  evasive  30   ramp queue: following on the ramp | merge area
+    47 ( 12%)  evasive  42   leader cutting in (lane change) | merge area
+    31 (  8%)  evasive  23   follower changing lanes | merge area
+    10 (  3%)  evasive   4   plain following | merge area
+     8 (  2%)  evasive   8   follower merging from ramp | merge area
+     2 (  1%)  evasive   2   leader changing out | merge area
+     1 (  0%)  evasive   1   plain following | upstream (> 300 m before gore)
+     1 (  0%)  evasive   1   leader changing out | upstream (> 300 m before gore)

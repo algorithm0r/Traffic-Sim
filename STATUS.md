@@ -1,12 +1,12 @@
 # Traffic Sim — STATUS
 *One screen. The current pulse. Overwritten, never appended — for history read DEVLOG.*
 
-**Updated:** 2026-09-25 (Stage 15 done) — refreshed every session close; may carry unverified claims
+**Updated:** 2026-09-25 (Stage 16 done) — refreshed every session close; may carry unverified claims
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-Stage 15 `[ DONE ]` (safety exposure by traffic regime; signal-aware glances) / Stage 16
-`[ PLANNED ]` (SUMO) / Stage 17 `[ PLANNED ]` (merge and weaving safety — the open finding)
+Stage 16 `[ DONE ]` (side by side with SUMO) / Stage 17 `[ PLANNED ]` (merge and weaving
+safety: IDM's cut-in response first, then merge behaviour)
 
 ## State
 - Program goals (DEVPLAN, 2026-09-22): (1) cleaner, less rule-based 2D model; (2) traffic
@@ -40,6 +40,9 @@ Stage 15 `[ DONE ]` (safety exposure by traffic regime; signal-aware glances) / 
 - Phase diagram (results/phase-note.md): steady to k=30 at ≤1.0×; breaks at 30 at 1.3×, 25
   at 1.6×, from 16 at 2.0×. Position depends on headways, lateral precision and attention
 - Capacity drop (results/capdrop-note.md): 10.9-13.9% in all five cases (vs 5-min pre-max)
+- vs SUMO (results/sumo-note.md): same capacity with matched IDM; drop ours 10-15%, LC2013
+  −2-3% (ideal) / 7-10% (action step), SL2015 19-40% (deadlocks 6/20); TTC<1.5 conflicts per
+  1000 veh·km LC2013 ~1, ours 6-18, SL2015 33-89. Ours are cut-ins braked by IDM saturating
 
 ## Branches / tags
 - `main` tracks origin/main; tags v0.1-v0.4.1, v0.5, v0.6, v0.7 (2026-09-24), **v0.8** (2026-09-25:
@@ -49,11 +52,13 @@ Stage 15 `[ DONE ]` (safety exposure by traffic regime; signal-aware glances) / 
 - Realization variance 4-5× between independent 10⁵ veh·km sets — quote spreads, not Poisson
 - Lane-change rate half of highD's (fleet speed spread differs) — recorded, not tuned
 - Runtimes (main realm): smoke ~40 s; validate ~2 min; sweep ~3 min; phase ~9 min;
-  calib ~2 min per variant; capdrop ~30 min
+  calib ~2 min per variant; capdrop ~30 min; SUMO grid ~4 h CPU (SL2015 dominates)
+- Workstation load: keep batches ≤4 processes (an 18-process batch hard-reset the machine)
 
 ## Next action
-Stage 17: merge and weaving safety (empirical onramp merge behaviour; mainline anticipation;
-crash typing). Stage 16: SUMO side by side. Blocked item: a manual-driving glance-duration
+Stage 17: merge and weaving safety — first IDM's cut-in over-reaction (Enhanced IDM's
+constant-acceleration heuristic), then empirical onramp merge behaviour, mainline anticipation,
+crash typing. Offer v0.9 (Stage 16). Blocked item: a manual-driving glance-duration
 reference for the attention tail.
 
 ## Blockers

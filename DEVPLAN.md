@@ -361,17 +361,28 @@ trajectory error reported against the pre-calibration baseline, and every suite 
 freeway-specific reference, by traffic regime. ✓ 2026-09-25 (results/exposure-note.md) —
 compared; the model over-produces lane-change crashes (Stage 17).
 
-### Stage 16 — Cross-model comparison  [ PLANNED ]
-- [ ] The capacity-drop experiment reproduced in SUMO (IDM + LC2013 and the sublane model;
-      `pip install eclipse-sumo`), same geometry and demand profile
-- [ ] Where the numbers differ, trace which mechanism differs
-**Done when:** the capacity-drop result is reported for this model and SUMO side by side.
+### Stage 16 — Cross-model comparison  [ DONE 2026-09-25 ]
+- [x] The capacity-drop experiment reproduced in SUMO 1.27.1 (`tools/sumo_capdrop.py`: IDM
+      matched to our archetypes, LC2013 and SL2015, ideal / action-step / SUMO-default drivers,
+      SSM conflicts), same geometry and demand profile; both models scored by one function
+- [x] Where the numbers differ, trace which mechanism differs: same capacity (matched IDM);
+      the drop and the conflict rate are set by the lane-change model. Gap acceptance explains
+      a quarter to a third of our larger drop (`capdrop.mjs --gap follower`); the 2D body none.
+      Our conflicts are cut-ins, 77-80% of their hard braking IDM saturating
+      (`probes/mergeconflict.mjs`). Written up in `results/sumo-note.md`.
+**Done when:** the capacity-drop result is reported for this model and SUMO side by side. ✓
 
 ### Stage 17 — Merge and weaving safety  [ PLANNED ]
 Stage 15's open finding: at interchanges three quarters or more of crashes involve a lane
 change or merge at every density (Golob: rear-ends prevail at 54-83% in congestion), and
 evasive near-crashes run far above naturalistic rates. The merge process itself, not
 attention, drives it.
+Stage 16 sharpened it: our TTC < 1.5 conflicts at bottlenecks are cut-ins (6-18 per 1000 veh·km
+vs SUMO LC2013's ~1), and 77-80% of their ≥ 0.5 g braking is IDM's (s*/s)² term saturating at
+bMax on a close cut-in, not the reflex. Stricter gap acceptance does not reduce them.
+- [ ] IDM's response to cut-ins: the Enhanced IDM constant-acceleration heuristic (Kesting,
+      Treiber & Helbing 2010) — an established fix for exactly this over-reaction; re-measure
+      conflicts, capacity drop and the phase diagram
 - [ ] How real mergers behave at the end of an acceleration lane: yield and wait vs force in
       (empirical merge-location and accepted-gap data at freeway onramps)
 - [ ] Mainline anticipation of mergers beyond the claim (earlier yielding and lane changes

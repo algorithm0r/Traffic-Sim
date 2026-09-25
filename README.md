@@ -34,6 +34,11 @@ the shared engine v2.
 - **Safety exposure:** `node exposure.mjs [--params JSON --out name]` — ~1 h on 14 workers; the
   interchange loop across five densities, crash types and rates → `results/exposure.{md,json}`;
   written up in `results/exposure-note.md`.
+- **SUMO comparison (Python + `pip install eclipse-sumo`):** `python tools/sumo_capdrop.py
+  --workers 3` — the capacity-drop experiment in SUMO 1.27 (matched IDM, LC2013/SL2015, SSM
+  conflicts), both models in one table → `results/sumo-capdrop.{md,json}`; `--reuse` re-scores
+  saved output. Mechanism tests: `node capdrop.mjs --gap follower`, `probes/mergeconflict.mjs`.
+  Written up in `results/sumo-note.md`.
 - **Open road / lane drops / deceleration lanes:** `openRoad`, `upstreamDemand`,
   `laneDropAt`, `decelLaneLength` in `src/params.js`.
 - **Live:** https://algorithm0r.github.io/Traffic-Sim/

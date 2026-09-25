@@ -1,6 +1,6 @@
 """Stage 16: the capacity-drop experiment reproduced in SUMO, side by side with capdrop.mjs.
 
-  python tools/sumo_capdrop.py [--seeds 1,2,3,4,5] [--workers 8] [--cases merge,drop]
+  python tools/sumo_capdrop.py [--seeds 1,2,3,4,5] [--workers 3] [--cases merge,drop]
                                [--lc LC2013,SL2015] [--drivers ideal,human,default]
 
 Same geometry, demand and driver population as capdrop.mjs:
@@ -31,7 +31,7 @@ position caps a mixed-speed fleet near 1,800 veh/h, since a fast type cannot ent
 slow one; departPos 'last' is worse, silently inserting vehicles far down the road.
 Raw SUMO output goes to data/sumo/ (gitignored); results/sumo-capdrop.{json,md}.
 """
-import argparse, json, os, subprocess, sys, time, random, math, zlib
+import argparse, json, os, re, subprocess, sys, time, random, math, zlib
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 import sumo
@@ -45,10 +45,12 @@ ROOT = os.path.join(HERE, '..')
 BIN = os.path.join(sumo.SUMO_HOME, 'bin')
 ap = argparse.ArgumentParser()
 ap.add_argument('--seeds', default='1,2,3,4,5')
-ap.add_argument('--workers', type=int, default=8)
+ap.add_argument('--workers', type=int, default=3)  # a workstation: keep it light
 ap.add_argument('--cases', default='merge,drop')
 ap.add_argument('--lc', default='LC2013,SL2015')
-ap.add_argument('--drivers', default='ideal,human')
+ap.add_argument('--drivers', default='ideal,human,default')
+ap.add_argument('--timeout', type=float, default=5400, help='wall-clock seconds per run before it is stopped')
+ap.add_argument('--reuse', action='store_true', help='re-score existing data/sumo output instead of re-simulating')
 args = ap.parse_args()
 seeds = [int(s) for s in args.seeds.split(',')]
 OUT = os.path.join(ROOT, 'data', 'sumo'); os.makedirs(OUT, exist_ok=True)
@@ -92,7 +94,7 @@ def build_net(case, d):
     for e, pos, n, tag in dets:
         for ln in range(n):
             add += f'<inductionLoop id="{tag}_{ln}" lane="{e}_{ln}" pos="{pos}" freq="60" file="det.xml"/>'
-    add += '<edgeData id="ed" freq="3900" file="edge.xml"/></additional>'
+    add += '<edgeData id="ed" freq="60" file="edge.xml"/></additional>'
     write(f'{d}/add.xml', add)
     return dets
 
@@ -142,11 +144,26 @@ def hold_drop(bins):
     H = sum(q[45:65]) / 20
     return dict(P=P, H=H, holdDrop=1 - H / P)
 
+# SUMO's outputs are parsed by regex, so a run killed at a deadlock (truncated XML) still reads
+IV = re.compile(r'<interval begin="([\d.]+)"[^>]*? id="([ud])_\d+" nVehContrib="(\d+)"[^>]*? speed="([-\d.]+)"')
+
+def down_flow(det_xml):
+    """Per-minute downstream vehicle counts so far (for the deadlock watcher)."""
+    q = {}
+    for b, tag, n, _ in IV.findall(open(det_xml).read()):
+        if tag == 'd': q[int(float(b) // 60)] = q.get(int(float(b) // 60), 0) + int(n)
+    return q
+
+def deadlock_minute(q, upto):
+    """First minute of >= 5 consecutive minutes with nothing crossing the downstream detector."""
+    for m in range(5, upto - 4):
+        if all(q.get(k, 0) == 0 for k in range(m, m + 5)): return m
+    return -1
+
 def analyse(det_xml, lanesDown):
     counts = {}
-    for iv in ET.parse(det_xml).getroot().iter('interval'):
-        m = int(round(float(iv.get('begin')) / 60)); tag = iv.get('id')[0]
-        n = int(iv.get('nVehContrib')); sp = float(iv.get('speed'))
+    for b, tag, n, sp in IV.findall(open(det_xml).read()):
+        m = int(round(float(b) / 60)); n = int(n); sp = float(sp)
         c = counts.setdefault(m, {'u_n': 0, 'u_s': 0.0, 'd_n': 0})
         if tag == 'u':
             c['u_n'] += n; c['u_s'] += sp * n if n > 0 and sp >= 0 else 0
@@ -157,6 +174,10 @@ def analyse(det_xml, lanesDown):
         c = counts.get(m, {'u_n': 0, 'u_s': 0.0, 'd_n': 0})
         bins.append(dict(m=m, upV=c['u_s'] / c['u_n'] if c['u_n'] else float('nan'), downQ=c['d_n'] * 60 / lanesDown))
     fin = lambda x: not math.isnan(x)
+    recorded = max(counts) + 1 if counts else 0   # a killed run's record stops here
+    dl = deadlock_minute({b['m']: b['downQ'] for b in bins[:recorded]}, recorded)
+    if recorded < 65 and dl < 0: return dict(deadlock=-1, truncated=recorded, tb=-1, drop=float('nan'), bins=bins)
+    if dl >= 0: return dict(deadlock=dl, tb=-1, drop=float('nan'), bins=bins)
     free = sorted(b['upV'] for b in bins[3:8] if fin(b['upV']))
     vFree = free[len(free) // 2] if free else float('nan')
     thr = 0.6 * vFree
@@ -174,7 +195,7 @@ def analyse(det_xml, lanesDown):
         qdrBins = len(after)
         if qdrBins >= 10: qdr = sum(b['downQ'] for b in after) / qdrBins
         stalls = sum(1 for b in bins[tb:] if b['downQ'] == 0)
-    return dict(vFree=vFree, tb=tb, preMax=preMax, pre10=pre10, qdr=qdr, qdrBins=qdrBins, stalls=stalls, **hold_drop(bins),
+    return dict(deadlock=-1, vFree=vFree, tb=tb, preMax=preMax, pre10=pre10, qdr=qdr, qdrBins=qdrBins, stalls=stalls, **hold_drop(bins),
                 drop=1 - qdr / preMax if tb > 0 else float('nan'), drop10=1 - qdr / pre10 if tb > 0 else float('nan'), bins=bins)
 
 def run(job):
@@ -187,27 +208,42 @@ def run(job):
            '--step-length', '0.1', '--end', '3900', '--seed', str(seed), '--time-to-teleport', '-1',
            '--collision.action', 'warn', '--collision.mingap-factor', '0', '--no-step-log', 'true',
            '--duration-log.disable', 'true', '--statistic-output', 'stats.xml', '--default.action-step-length', '0.1',
+           '--collision-output', 'col.xml',
            '--device.ssm.probability', '1', '--device.ssm.measures', 'TTC DRAC', '--device.ssm.thresholds', '1.5 4.9',
            '--device.ssm.trajectories', 'false', '--device.ssm.range', '60', '--device.ssm.file', 'ssm.xml']
     if lc == 'SL2015': cmd += ['--lateral-resolution', '0.8']
     t0 = time.time()
-    p = subprocess.run(cmd, cwd=d, capture_output=True, text=True)
-    if p.returncode != 0:
-        return dict(case=case, lc=lc, drivers=drivers, seed=seed, error=p.stderr[-500:])
+    killed = False
+    finished = lambda: (os.path.exists(f'{d}/stats.xml') and '<vehicles' in open(f'{d}/stats.xml').read())                        or os.path.exists(f'{d}/killed.flag')   # stats.xml is created at startup, filled at the end
+    if not (args.reuse and finished()):
+        # watch the run: without teleporting a deadlock never clears, and SUMO then crawls
+        # toward t=3900 s under a growing queue; stop it once nothing has crossed the
+        # downstream detector for 5 min (recorded as a deadlock, not scored for capacity)
+        for f in ('stats.xml', 'col.xml', 'killed.flag'):
+            if os.path.exists(f'{d}/{f}'): os.remove(f'{d}/{f}')
+        proc = subprocess.Popen(cmd, cwd=d, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        while proc.poll() is None:
+            time.sleep(20)
+            q = down_flow(f'{d}/det.xml') if os.path.exists(f'{d}/det.xml') else {}
+            reason = 'deadlock' if q and deadlock_minute(q, max(q) + 1) >= 0 else                      'timeout' if time.time() - t0 > args.timeout else None
+            if reason:
+                proc.kill(); proc.wait(); killed = reason; write(f'{d}/killed.flag', reason); break
+        if not killed and proc.returncode != 0:
+            return dict(case=case, lc=lc, drivers=drivers, seed=seed, error=proc.stderr.read()[-500:])
     res = analyse(f'{d}/det.xml', g['lanesDown'])
-    vkm = 0.0
-    for e in ET.parse(f'{d}/edge.xml').getroot().iter('edge'):
-        ss, sp = float(e.get('sampledSeconds', 0)), float(e.get('speed', 0) or 0)
-        vkm += ss * sp / 1000
-    st = ET.parse(f'{d}/stats.xml').getroot()
-    col = st.find('safety').get('collisions') if st.find('safety') is not None else '0'
+    txt = open(f'{d}/edge.xml').read()
+    vkm = sum(float(ss) * float(sp) / 1000 for ss, sp in
+              re.findall(r'<edge id="[^"]*" sampledSeconds="([\d.]+)"[^>]*? speed="([\d.]+)"', txt))
+    col = open(f'{d}/col.xml').read().count('<collision ') if os.path.exists(f'{d}/col.xml') else 0
     ttc = drac = 0
-    for c in ET.parse(f'{d}/ssm.xml').getroot().iter('conflict'):
-        mt = c.find('minTTC'); md = c.find('maxDRAC')
-        if mt is not None and mt.get('value') not in (None, 'NA') and float(mt.get('value')) < 1.5: ttc += 1
-        if md is not None and md.get('value') not in (None, 'NA') and float(md.get('value')) >= 4.9: drac += 1
-    res.update(case=case, lc=lc, drivers=drivers, seed=seed, vehKm=vkm, collisions=int(col), ttcConflicts=ttc,
-               dracConflicts=drac, secs=round(time.time() - t0, 1))
+    for blk in re.findall(r'<conflict .*?</conflict>', open(f'{d}/ssm.xml').read(), re.S):
+        mt = re.search(r'<minTTC [^>]*value="([\d.]+)"', blk); md = re.search(r'<maxDRAC [^>]*value="([\d.]+)"', blk)
+        if mt and float(mt.group(1)) < 1.5: ttc += 1
+        if md and float(md.group(1)) >= 4.9: drac += 1
+    res.update(case=case, lc=lc, drivers=drivers, seed=seed, vehKm=vkm, collisions=col, ttcConflicts=ttc,
+               dracConflicts=drac, secs=round(time.time() - t0, 1),
+               killed=killed or (open(f'{d}/killed.flag').read() if os.path.exists(f'{d}/killed.flag') else False))
+    if res['killed'] == 'timeout': res.update(deadlock=-1, timeout=True, tb=-1, drop=float('nan'))
     return res
 
 jobs = [(c, lc, dr, s) for c in args.cases.split(',') for lc in args.lc.split(',') for dr in args.drivers.split(',') for s in seeds]
@@ -216,21 +252,29 @@ with ThreadPoolExecutor(args.workers) as ex:
     for r in ex.map(run, jobs):
         out.append(r)
         if 'error' in r: print('ERROR', r['case'], r['lc'], r['drivers'], r['seed'], r['error'], flush=True)
-        else: print(f"  {r['case']:5s} {r['lc']} {r['drivers']:5s} seed {r['seed']}: tb {r['tb']} pre-max {r['preMax']:.0f} "
-                    f"QDR {r['qdr']:.0f} drop {100 * r['drop']:.1f}%  collisions {r['collisions']}  TTC<1.5 {r['ttcConflicts']}  "
-                    f"DRAC>=0.5g {r['dracConflicts']}  veh-km {r['vehKm']:.0f}  [{r['secs']} s]", flush=True)
+        else: print(f"  {r['case']:5s} {r['lc']} {r['drivers']:7s} seed {r['seed']}: " +
+                    (f"DEADLOCK at minute {r['deadlock']}" if r['deadlock'] >= 0 else
+                     f"STOPPED without deadlock ({r.get('killed') or 'truncated record'})" if r.get('timeout') or r.get('truncated') else
+                     f"tb {r['tb']} pre-max {r['preMax']:.0f} QDR {r['qdr']:.0f} drop {100 * r['drop']:.1f}%  "
+                     f"P {r['P']:.0f} H {r['H']:.0f} hold drop {100 * r['holdDrop']:.1f}%") +
+                    f"  collisions {r['collisions']}  TTC<1.5 {r['ttcConflicts']}  DRAC>=0.5g {r['dracConflicts']}  "
+                    f"veh-km {r['vehKm']:.0f}  [{r['secs']} s]", flush=True)
 
 # ---- report: SUMO rows, then this model's capdrop.json runs scored by the same functions
 NL = '\n'
 fin = lambda x: x is not None and not math.isnan(x)
 
 def summarise(label, c, lc, dr, rs, near=None):
-    ok = [r for r in rs if r['tb'] > 0 and fin(r['drop'])]
+    dead = [r for r in rs if r.get('deadlock', -1) >= 0]
+    cut = [r for r in rs if r.get('timeout') or r.get('truncated')]   # stopped without a deadlock: unscored
+    live = [r for r in rs if r.get('deadlock', -1) < 0 and r not in cut]
+    ok = [r for r in live if r['tb'] > 0 and fin(r['drop'])]
     m = lambda k, rr: sum(r[k] for r in rr) / len(rr) if rr else float('nan')
     km = sum(r['vehKm'] for r in rs) or float('nan')
     row = dict(model=label, case=c, lc=lc, drivers=dr, n=len(rs), broke=len(ok), drop=m('drop', ok), qdr=m('qdr', ok),
-               P=m('P', rs), H=m('H', rs), holdDrop=m('holdDrop', rs),
-               holdRange=[min(r['holdDrop'] for r in rs), max(r['holdDrop'] for r in rs)] if rs else None,
+               deadlocks=len(dead), deadlockMin=[r['deadlock'] for r in dead], unscored=len(cut),
+               P=m('P', live), H=m('H', live), holdDrop=m('holdDrop', live),
+               holdRange=[min(r['holdDrop'] for r in live), max(r['holdDrop'] for r in live)] if live else None,
                collisions=sum(r['collisions'] for r in rs), vehKm=km)
     if near: row.update(ttc=1000 * sum(r[near[0]] for r in rs) / km, hard=1000 * sum(r[near[1]] for r in rs) / km)
     return row
@@ -242,14 +286,21 @@ for c in args.cases.split(','):
             rs = [r for r in out if r.get('case') == c and r.get('lc') == lc and r.get('drivers') == dr and 'error' not in r]
             if rs: rows.append(summarise('SUMO', c, lc, dr, rs, ('ttcConflicts', 'dracConflicts')))
 ours = []
-cj = json.load(open(os.path.join(ROOT, 'results', 'capdrop.json')))
-for name, runs in cj['cases'].items():
-    if name.endswith(':bins'): continue
-    geom, body, dr = name.split('-')
-    rs = []
-    for r, bins in zip(runs, cj['cases'][name + ':bins']):
-        r = dict(r, **hold_drop(bins)); r['collisions'] = r.get('crashes', 0); rs.append(r)
-    ours.append(summarise('this model', geom, body + ' body', dr, rs, ('near', 'evasive') if 'near' in runs[0] else None))
+# this model's baseline (capdrop.json) and, when present, its SUMO-style gap-acceptance variant
+# (capdrop.mjs --gap follower --out capdrop-gapf-<case>): the mechanism test for the difference
+import glob
+srcs = [('this model', os.path.join(ROOT, 'results', 'capdrop.json'))] +        [('this model, follower gap', f) for f in sorted(glob.glob(os.path.join(ROOT, 'results', 'capdrop-gapf-*.json')))]
+for label, fn in srcs:
+    cj = json.load(open(fn))
+    for name, runs in cj['cases'].items():
+        if name.endswith(':bins'): continue
+        geom, body, dr = name.split('-')
+        rs = []
+        for r, bins in zip(runs, cj['cases'][name + ':bins']):
+            r = dict(r, **hold_drop(bins)); r['collisions'] = r.get('crashes', 0); rs.append(r)
+        # the lane body runs the 1D passes, which keep no near-crash bookkeeping: not measured, not zero
+        measured = 'near' in runs[0] and body != 'lane'
+        ours.append(summarise(label, geom, body + ' body', dr, rs, ('near', 'evasive') if measured else None))
 
 pct = lambda x: f'{100 * x:.1f}%' if fin(x) else '–'
 num = lambda x, f='{:.0f}': f.format(x) if fin(x) else '–'
@@ -257,7 +308,7 @@ num = lambda x, f='{:.0f}': f.format(x) if fin(x) else '–'
 def line(r):
     rng_ = f" ({100 * r['holdRange'][0]:.0f} to {100 * r['holdRange'][1]:.0f})" if r['holdRange'] else ''
     return (f"| {r['model']} | {r['case']} | {r['lc']} | {r['drivers']} | {num(r['P'])} | {num(r['H'])} | {pct(r['holdDrop'])}{rng_} | "
-            f"{r['broke']}/{r['n']} | {pct(r['drop'])} | {r['collisions']} | {num(r.get('ttc', float('nan')), '{:.2f}')} | "
+            f"{r['broke']}/{r['n']}" + (f" ({r['deadlocks']} deadlocked)" if r['deadlocks'] else '') + f" | {pct(r['drop'])} | {r['collisions']} | {num(r.get('ttc', float('nan')), '{:.2f}')} | "
             f"{num(r.get('hard', float('nan')), '{:.2f}')} | {r['vehKm'] / 1000:.0f}k |" + NL)
 
 ver = subprocess.run([os.path.join(BIN, 'sumo'), '--version'], capture_output=True, text=True).stdout.splitlines()[0]
