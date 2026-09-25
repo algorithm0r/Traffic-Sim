@@ -10,7 +10,12 @@
 // the highest 5-bin rolling mean of downstream flow ending before breakdown. Queue
 // discharge = the mean downstream flow from 5 bins after breakdown to the end, over bins
 // in which the queue persists (upstream still below threshold). Drop = 1 − QDR / pre-max.
-//   node capdrop.mjs [--seeds 1..5] [--cases merge-lane-ideal,...]
+//   node capdrop.mjs [--seeds 1..5] [--cases merge-lane-ideal,...] [--params JSON] [--out name]
+//                    [--gap follower]
+// --gap follower (Stage 16): SUMO LC2013's gap acceptance — a changer accepts only a gap its
+// new follower can absorb at that follower class's comfortable deceleration b, forced or not
+// (bSafe = b per class, bAcceptMax = the largest class b). Ours otherwise imposes up to bSafe
+// (3.5-5 m/s²), rising to 8 m/s² in a forced merge.
 import { writeFileSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -45,6 +50,9 @@ const CASES = {
   'drop-bicycle-human':   { geom: 'drop', body: 'bicycle', human: true },
 };
 const only = flag('cases', null);
+const params = JSON.parse(flag('params', '{}'));
+const outName = flag('out', 'capdrop');
+const gap = flag('gap', null);
 
 function run(c, seed) {
   const G = GEOM[c.geom];
@@ -58,15 +66,27 @@ function run(c, seed) {
     Object.assign(ctx.ARCHETYPES[k], JSON.parse(JSON.stringify(BASE_ARCH[k])));
     if (!c.human) Object.assign(ctx.ARCHETYPES[k], JSON.parse(JSON.stringify(ctx.IDEAL_CONTROL)));
   }
+  for (const [key, val] of Object.entries(params)) {   // --params: variants, nested objects merged
+    if (val && typeof val === 'object' && !Array.isArray(val)) Object.assign(P[key], val); else P[key] = val;
+  }
+  if (gap === 'follower') {
+    const bOf = (a) => Array.isArray(a.b) ? a.b[0] : a.b;
+    for (const a of Object.values(ctx.ARCHETYPES)) a.bSafe = bOf(a);
+    P.lc.bAcceptMax = Math.max(...Object.values(ctx.ARCHETYPES).map(bOf));
+  }
   const world = new ctx.World();
   const engine = new ctx.GameEngine();
   const binTicks = Math.round(60 / P.dt), minutes = 65;
   const bins = [];
+  let vehKm = 0;   // exposure, for conflict rates comparable with SUMO's SSM device (Stage 16)
   for (let m = 0; m < minutes; m++) {
     // demand profile: 5 min fill, 30 min ramp, 30 min hold
     P.upstreamDemand = m < 5 ? G.upLo : m < 35 ? G.upLo + (G.upHi - G.upLo) * (m - 5) / 30 : G.upHi;
     for (const d of world.detectors) { d.count = 0; d.speedSum = 0; }
-    for (let t = 0; t < binTicks; t++) { engine.tick++; world.update(engine); }
+    for (let t = 0; t < binTicks; t++) {
+      engine.tick++; world.update(engine);
+      if (t % 20 === 0) for (const v of world.vehicles) vehKm += v.v * P.dt * 20 / 1000;
+    }
     const [du, dd] = world.detectors;
     bins.push({ m, upV: du.count ? du.speedSum / du.count : NaN, downQ: dd.count * 60 / G.lanesDown,
                 downV: dd.count ? dd.speedSum / dd.count : NaN, demand: P.upstreamDemand,
@@ -100,6 +120,7 @@ function run(c, seed) {
   const stalls = tb > 0 ? bins.slice(tb).filter((b) => b.downQ === 0).length : 0;
   return { seed, vFree, tb, preMax, pre10, qdr, qdrBins, stalls, drop: 1 - qdr / preMax, drop10: 1 - qdr / pre10,
            crashes: s.crashes / 2 | 0, rear: s.collisions, side: s.sideswipes || 0,
+           vehKm, near: s.nearCrashes || 0, evasive: s.evasiveNear || 0, lateral: s.lateralConflicts || 0,
            merges: s.merges, maxQueue: world.upstream.maxQueue, bins };
 }
 
@@ -135,11 +156,13 @@ for (const [name, c] of Object.entries(CASES)) {
   console.log(sum); lines.push(sum);
 }
 mkdirSync(path.join(__dirname, 'results'), { recursive: true });
-writeFileSync(path.join(__dirname, 'results', 'capdrop.json'), JSON.stringify(out));
-writeFileSync(path.join(__dirname, 'results', 'capdrop.md'),
+out.params = params; out.gap = gap;
+writeFileSync(path.join(__dirname, 'results', outName + '.json'), JSON.stringify(out));
+writeFileSync(path.join(__dirname, 'results', outName + '.md'),
   '# Capacity drop on an open road' + NL + NL +
   'Pre-breakdown capacity (highest 5-min mean of downstream flow before breakdown) vs queue-discharge rate ' +
   '(mean downstream flow once the queue is established), veh/h/lane at a detector ~1 km downstream. ' +
-  'Empirical drops are roughly 5-20%. Protocol in capdrop.mjs. Generated ' + out.generated + '.' + NL + NL +
+  'Empirical drops are roughly 5-20%. Protocol in capdrop.mjs. Generated ' + out.generated + '.' +
+  (Object.keys(params).length || gap ? ' Variant: ' + JSON.stringify({ params, gap }) + '.' : '') + NL + NL +
   FENCE + NL + header + NL + lines.join(NL) + NL + FENCE + NL);
-console.log('wrote results/capdrop.md and results/capdrop.json');
+console.log(`wrote results/${outName}.md and results/${outName}.json`);
