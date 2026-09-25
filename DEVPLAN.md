@@ -337,7 +337,7 @@ aggregate target; none is fitted to trajectories, the field's standard of eviden
 trajectory error reported against the pre-calibration baseline, and every suite passes.
 ✓ 2026-09-24 (results/ngsim-note.md).
 
-### Stage 15 — Safety exposure and joint calibration  [ PLANNED ]
+### Stage 15 — Safety exposure and joint calibration  [ ACTIVE ]
 - [ ] Joint calibration of attention with car-following: the NGSIM headways tighten the
       glance budget (glances > 2 s: 0.7% vs naturalistic ~4%)
 - [ ] The cut-in-then-brake mechanism: every near-crash at calibrated defaults is a changer
