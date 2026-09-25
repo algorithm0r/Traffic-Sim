@@ -27,6 +27,10 @@ the shared engine v2.
 - **Capacity drop:** `node capdrop.mjs --seeds 1..5` — ~48 min; open road, merge and lane
   drop, both bodies, the empirical protocol → `results/capdrop.{md,json}`; written up in
   `results/capdrop-note.md`.
+- **NGSIM calibration (Python: numpy, scipy, pandas):** `python tools/ngsim_fetch.py` (public API →
+  data/, gitignored), then `tools/ngsim_calib.py` (per-episode), `tools/ngsim_classes.py --fix-b
+  [--holdout]` (the adopted population calibration), `tools/ngsim_lanechange.py`; written up in
+  `results/ngsim-note.md`.
 - **Open road / lane drops / deceleration lanes:** `openRoad`, `upstreamDemand`,
   `laneDropAt`, `decelLaneLength` in `src/params.js`.
 - **Live:** https://algorithm0r.github.io/Traffic-Sim/

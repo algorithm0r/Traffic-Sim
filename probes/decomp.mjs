@@ -5,6 +5,7 @@ import { loadSim } from '../headless.mjs';
 const ctx = loadSim(); const P = ctx.PARAMETERS;
 const seeds = (process.argv[2] || '1,2,3,4,5,6').split(',').map(Number);
 const secs = 900;
+const byProf = {}, byLeadProf = {};
 let lateral = 0, vehKm = 0, near = 0, nearGlance = 0, nearLeadBrake = 0, nearLeadHard = 0, nearLeadCutIn = 0, hardBrakes = 0, ttcSum = 0;
 let glanceN = 0, glanceOver2 = 0, glanceDurSum = 0, eyesOffTicks = 0, vehTicks = 0;
 const leadAccHist = new Map();   // id -> recent acc samples
@@ -14,6 +15,7 @@ for (const seed of seeds) {
   const hist = new Map(), hard = new Set(), glanceStart = new Map();
   world.onNearCrash = (veh, lead, ttc) => {
     near++; ttcSum += ttc;
+    byProf[veh.p.name] = (byProf[veh.p.name] || 0) + 1; byLeadProf[lead.p.name] = (byLeadProf[lead.p.name] || 0) + 1;
     if (world.time < veh.glanceUntil) nearGlance++;
     const h = hist.get(lead.id) || [];
     const minAcc = Math.min(0, ...h);
@@ -44,3 +46,4 @@ console.log(`  leader braked ≤ -2 m/s² in prior 2 s: ${nearLeadBrake} (${(100
 console.log(`  leader mid-change or just completed one (cut-in): ${nearLeadCutIn} (${(100 * nearLeadCutIn / Math.max(near, 1)).toFixed(0)}%)`);
 console.log(`hard-braking events (≤ -4.9 m/s²) ${hardBrakes} → ${per(hardBrakes)} /1000 veh·km`);
 console.log(`glances ${glanceN}: mean ${(glanceDurSum / Math.max(glanceN, 1)).toFixed(2)} s, > 2 s: ${(100 * glanceOver2 / Math.max(glanceN, 1)).toFixed(1)}%, eyes-off-road ${(100 * eyesOffTicks / vehTicks).toFixed(1)}% of time`);
+console.log('near-crash followers by archetype', JSON.stringify(byProf), ' leaders', JSON.stringify(byLeadProf));

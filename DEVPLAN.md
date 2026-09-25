@@ -310,3 +310,47 @@ capacity drop written up. Open: crash-type proportions (see above).
 ✓ 2026-09-24 (results/capdrop-note.md): case means 7.8-20.0% on the literature-style measure
 (after lane-keeping calibration); the conservative estimator reads lower (1 to 11%), and the
 truth lies between.
+
+### Stage 14 — Trajectory-grounded drivers (NGSIM)  [ DONE ]
+The v0.6 evaluation's first gap: every driver parameter is a literature range or an
+aggregate target; none is fitted to trajectories, the field's standard of evidence.
+- [x] Data: NGSIM I-80, 4:00-4:15 pm, 1.17 M rows, 1,972 vehicles, pulled from the public
+      data.transportation.gov API (`tools/ngsim_fetch.py`) into data/ (gitignored)
+- [x] Episodes: 927 car-following runs ≥ 30 s (877 car, 49 truck followers), Savitzky-Golay
+      smoothing, tracking errors dropped (`tools/ngsim_common.py`)
+- [x] Per-episode IDM fits (`tools/ngsim_calib.py`): 11% median gap error but NOT
+      transferable — b and s0 at bounds in half the fits, v0 unidentifiable, and the
+      low-T/high-s0 trade-off implies half-second highway headways
+- [x] Population calibration instead (`tools/ngsim_classes.py`): three car classes + trucks by
+      hard-assignment EM, bounds plausible at highway speed. b left free ran to its bound and
+      fit no better than b fixed; adopted with b fixed at literature values (free b made
+      cut-in drivers brake hard: near-crashes 3.5×). Adopted: T 0.85/1.39/2.05 s, shares
+      29/38/33%. Gap error 21.8% (was 22.1%), tails 36% (40%); held-out drivers the same
+- [x] Every suite and result rerun (results/ngsim-note.md): capacity 1836 → 1932
+      (homogeneous), lane changes 0.13 → 0.22/veh·km (highD 0.24), near-crashes → 0.054
+      (SHRP2 0.048), phase boundary moved inward, capacity drop 5.9-16.0%
+- [x] Lane-change gap acceptance vs NGSIM (`tools/ngsim_lanechange.py`, `probes/gapaccept.mjs`):
+      time gaps at the line crossing within 0.1-0.3 s at the median; model narrower
+- [ ] Follow-ups: a free-flow trajectory set (highD, on request) to test v0 and headways at
+      highway speed; joint calibration of attention with car-following (Stage 15)
+**Done when:** the archetypes' car-following parameters are fitted to NGSIM, with a
+trajectory error reported against the pre-calibration baseline, and every suite passes.
+✓ 2026-09-24 (results/ngsim-note.md).
+
+### Stage 15 — Safety exposure and joint calibration  [ PLANNED ]
+- [ ] Joint calibration of attention with car-following: the NGSIM headways tighten the
+      glance budget (glances > 2 s: 0.7% vs naturalistic ~4%)
+- [ ] The cut-in-then-brake mechanism: every near-crash at calibrated defaults is a changer
+      braking ≥ 0.5 g right after cutting in — check against freeway near-crash typology
+- [ ] A sourced freeway crash-type distribution (FARS/CRSS by roadway function, or a
+      freeway naturalistic subset)
+- [ ] Interchange-geometry runs at ≥10⁶ veh·km (runner.mjs → Mongo, overnight): crash and
+      near-crash rates and crash-type shares against it
+**Done when:** crash-type shares and rates at calibrated defaults are compared with a
+freeway-specific reference.
+
+### Stage 16 — Cross-model comparison  [ PLANNED ]
+- [ ] The capacity-drop experiment reproduced in SUMO (IDM + LC2013 and the sublane model;
+      `pip install eclipse-sumo`), same geometry and demand profile
+- [ ] Where the numbers differ, trace which mechanism differs
+**Done when:** the capacity-drop result is reported for this model and SUMO side by side.

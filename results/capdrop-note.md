@@ -1,6 +1,6 @@
 # Capacity drop on the open road
 
-*Results note, revised 2026-09-24. Data: `capdrop.md` (table), `capdrop.json` (per-run minute series). Regenerate with `node capdrop.mjs --seeds 1..5` (~45 min). Model state: open road, lane drops, the lane-end gridlock and wall fixes, and human lane keeping calibrated to on-road SDLP. The human rows were first run with an unsourced, wider band; ideal-driver rows are unaffected and reproduced exactly.*
+*Results note, revised 2026-09-24 for the NGSIM-calibrated drivers (Stage 14). Data: `capdrop.md` (table), `capdrop.json` (per-run minute series). Regenerate with `node capdrop.mjs --seeds 1..5` (~30 min on a multi-core machine). Earlier versions of this note reported the v0.6 drivers; that table is kept below for comparison.*
 
 ## Protocol
 
@@ -18,20 +18,19 @@ between. Five seeds per case.
 
 ## Result
 
-| case | pre-breakdown (5-min max) | queue discharge | drop vs 5-min max | drop vs 10-min mean |
-|---|---|---|---|---|
-| merge, 1D lane body, ideal drivers | 1500–1600 | 1240–1310 | 17.4% (14.0–22.1) | 7.7% (0.8–13.9) |
-| merge, bicycle body, ideal | 1280–1550 | 1195–1342 | 8.9% (1.1–19.1) | 0.8% (−5.2–11.3) |
-| merge, bicycle body, human | 1250–1530 | 1142–1262 | 10.8% (2.2–18.2) | 3.9% (−8.7–10.1) |
-| lane drop, bicycle, ideal | 1250–1490 | 1202–1319 | 7.8% (−2.1–13.0) | 1.3% (−9.2–6.8) |
-| lane drop, bicycle, human | 1240–1710 | 1077–1220 | 20.0% (1.3–37.0) | 11.2% (−9.0–28.2) |
+| case | drop vs 5-min max | drop vs 10-min mean | v0.6 drivers, vs 5-min max |
+|---|---|---|---|
+| merge, 1D lane body, ideal drivers | 13.9% (9.6–17.9) | 8.0% (4.3–11.3) | 17.4% |
+| merge, bicycle body, ideal | 13.8% (8.5–20.1) | 3.1% (−4.7–14.2) | 8.9% |
+| merge, bicycle body, human | 5.9% (−0.2–10.1) | −0.4% (−10.2–6.9) | 10.8% |
+| lane drop, bicycle, ideal | 12.1% (4.0–18.1) | −4.0% (−27.3–7.7) | 7.8% |
+| lane drop, bicycle, human | 16.0% (8.7–24.5) | 6.4% (−6.8–19.0) | 20.0% |
 
-Flows in veh/h/lane; drops are seed means with the seed range in brackets. Every run broke
-down; no run stalled; one crash in 25 runs (human, in the queue).
+Drops are seed means with the seed range in brackets. Every run broke down; no run stalled.
 
-On the literature's measure every case mean lies in the empirical 5–20% band, and the
-queue discharges at 83–93% of the pre-breakdown flow — the Stage 13 done-when, and the
-"merge-zone discharge into 80–95%" item.
+On the literature's measure four case means lie inside the empirical 5–20% band and the
+human merge sits at its lower edge (5.9%) — the Stage 13 done-when, re-confirmed on the
+NGSIM-calibrated drivers.
 
 ## Reading
 
@@ -42,12 +41,10 @@ queue discharges at 83–93% of the pre-breakdown flow — the Stage 13 done-whe
   before the flow reaches its maximum. That is the stochastic-breakdown picture of freeway
   capacity (breakdown probability rising with flow), and it is why the 2D drop is smaller:
   the pre-breakdown flow is lower, not the discharge higher.
-- **Human drivers lower the discharge.** At the lane drop the human queue discharges
-  about 100 veh/h/lane below the ideal one and the drop rises from 7.8% to 20.0%; at the
-  merge from 8.9% to 10.8%. Reaction time and relaxation after merging are exactly the
-  mechanisms the capacity-drop literature names (Laval & Leclercq 2008; Leclercq et al.
-  2011). With the earlier, wider lane-keeping band the human merge drop read 7.3%: sloppier
-  lateral control lowered the pre-breakdown flow as much as the discharge.
+- **Human versus ideal drivers: not robust.** On the v0.6 drivers humans raised the drop at
+  both bottlenecks. On the NGSIM-calibrated drivers they still do at the lane drop (16.0% vs
+  12.1%) but not at the merge (5.9% vs 13.8%), with overlapping seed ranges. Five seeds per
+  case cannot separate these; the claim is withdrawn until more seeds settle it.
 - **The spread is wide.** Single seeds range from a slightly negative drop to 27%. That is
   also the empirical picture (Chung et al. 2007 report 3–18% across sites), but five seeds
   cannot pin a case's mean to better than about ±4 percentage points.

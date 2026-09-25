@@ -1,0 +1,108 @@
+{
+ "n_cars": 422,
+ "n_trucks": 49,
+ "bounds": [
+  [
+   0.8,
+   2.4
+  ],
+  [
+   1.0,
+   4.0
+  ],
+  [
+   0.4,
+   3.0
+  ],
+  [
+   0.8,
+   4.0
+  ]
+ ],
+ "classes": {
+  "aggressive": {
+   "T": 0.8,
+   "s0": 1.97,
+   "a": 1.447,
+   "b": 1.214,
+   "share": 0.282,
+   "v0": 33.71
+  },
+  "normal": {
+   "T": 1.274,
+   "s0": 2.267,
+   "a": 0.99,
+   "b": 0.8,
+   "share": 0.431,
+   "v0": 30.22
+  },
+  "cautious": {
+   "T": 2.115,
+   "s0": 2.284,
+   "a": 0.687,
+   "b": 0.8,
+   "share": 0.287,
+   "v0": 27.31
+  }
+ },
+ "truck": {
+  "T": 1.472,
+  "s0": 3.017,
+  "a": 0.963,
+  "b": 0.8,
+  "v0": 25.57
+ },
+ "errors": {
+  "new_best_of_classes": {
+   "median": 0.219,
+   "p75": 0.278,
+   "p90": 0.354,
+   "crashes": 0
+  },
+  "old_best_of_archetypes": {
+   "median": 0.221,
+   "p75": 0.306,
+   "p90": 0.41,
+   "crashes": 0
+  },
+  "old_normal": {
+   "median": 0.344,
+   "p75": 0.505,
+   "p90": 0.763,
+   "crashes": 0
+  },
+  "new_normal": {
+   "median": 0.321,
+   "p75": 0.446,
+   "p90": 0.599,
+   "crashes": 0
+  },
+  "trucks_new": {
+   "median": 0.336,
+   "p75": 0.498,
+   "p90": 0.597,
+   "crashes": 0
+  },
+  "trucks_old": {
+   "median": 0.369,
+   "p75": 0.5,
+   "p90": 0.792,
+   "crashes": 0
+  }
+ },
+ "holdout": {
+  "n_test": 455,
+  "new_best_of_classes": {
+   "median": 0.219,
+   "p75": 0.282,
+   "p90": 0.359,
+   "crashes": 0
+  },
+  "old_best_of_archetypes": {
+   "median": 0.221,
+   "p75": 0.291,
+   "p90": 0.38,
+   "crashes": 0
+  }
+ }
+}

@@ -33,6 +33,8 @@ const VARIANTS = {
   check:   (a, p) => { a.checkProb = [Math.min(1, a.checkProb[0] + 0.02), a.checkProb[1]]; },
   combo:   (a, p) => { a.laneTol = [a.laneTol[0] * 0.6, a.laneTol[1] * 0.6]; p.attention.glanceSigma = 0.3; },   // wider band + shorter tail
   headway: (a, p) => { p.attention.glanceHeadwayFrac = 0.5; },   // glance ≤ half the time headway
+  // Stage 14: the pre-calibration comfortable braking b, other parameters as calibrated
+  oldb:    (a, p, k) => { a.b = [{ aggressive: 2.1, normal: 1.7, cautious: 1.4, truck: 1.2 }[k], a.b[1]]; },
   headway3:(a, p) => { p.attention.glanceHeadwayFrac = 0.33; },
 };
 
@@ -43,7 +45,7 @@ function run(variant, seed) {
   });
   for (const k of Object.keys(ctx.ARCHETYPES)) {
     const a = Object.assign(ctx.ARCHETYPES[k], JSON.parse(JSON.stringify(BASE_ARCH[k])));
-    VARIANTS[variant](a, P);
+    VARIANTS[variant](a, P, k);
   }
   const world = new ctx.World();
   const engine = new ctx.GameEngine();

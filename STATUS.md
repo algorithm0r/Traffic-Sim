@@ -1,13 +1,12 @@
 # Traffic Sim — STATUS
 *One screen. The current pulse. Overwritten, never appended — for history read DEVLOG.*
 
-**Updated:** 2026-09-24 (Stage 12 cleanup) — refreshed every session close; may carry unverified claims
+**Updated:** 2026-09-24 (Stage 14 done) — refreshed every session close; may carry unverified claims
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-Stage 13 `[ DONE ]` (open road, lane drops, deceleration lanes; capacity drop in band) /
-Stage 12 `[ ACTIVE ]` — calibration closed except crash-type proportions (needs a sourced
-freeway reference and far more exposure)
+Stage 14 `[ DONE ]` (car-following calibrated to NGSIM I-80) / Stage 15 `[ PLANNED ]`
+(safety exposure + joint attention/car-following calibration) / Stage 16 `[ PLANNED ]` (SUMO)
 
 ## State
 - Program goals (DEVPLAN, 2026-09-22): (1) cleaner, less rule-based 2D model; (2) traffic
@@ -29,19 +28,18 @@ freeway reference and far more exposure)
   heading capped by length (the open-road merge exposed cab overshoot at the ideal point)
 
 ## Metrics
-- Controls unchanged: FD ≈1% of analytic; capacity 1836; waves 13 km/h; ring embodiment
-  deltas ≤3.5%; D2 bottleneck 1302 veh/h/ln, 0 grazes
-- Lateral calibration (probes/lateral.mjs): SDLP 0.147 m vs on-road test 0.135-0.153 ✓
-  (was 0.32, unsourced); change duration 3.2 s vs NGSIM 4.0 ± 2.3 ✓; post-change headway
-  1.8 s mean vs highD peak 1 s ✓; lane changes 0.13/veh·km vs highD 0.24 (fleet spread)
-- Safety at calibrated defaults (results/calib-note.md, 2×10⁵ veh·km, k=15): 0 crashes,
-  near-crashes 0.010, lateral conflicts 0 — below SHRP2 all-roads (0.027 / 0.048)
-- Phase diagram (results/phase-note.md): fluid to k=25 at ≤1.3×; breaks at 25 at 1.6×,
-  from 12 at 2.0×. Calibrated lane keeping moved the slow-end boundary outward.
-  Boundary cells METASTABLE (8-34 mph across seeds at k=25 × 2.0)
-- Capacity drop (results/capdrop-note.md, 5 seeds): merge 1D 17.4%, 2D ideal 8.9%, 2D
-  human 10.8%; lane drop 2D ideal 7.8%, human 20.0% (vs 5-min pre-max; conservative
-  estimator 1-11%). Humans raise the drop at both bottlenecks
+- Controls: FD ≈1% of analytic; capacity 1932 (homogeneous, was 1836) and 1698 mixed fleet;
+  waves 13 km/h; ring embodiment deltas ≤1.4%; bicycle bottleneck 1527 veh/h/ln, 0 grazes
+- NGSIM (results/ngsim-note.md): 877 car episodes; population gap error 21.8% (was 22.1%),
+  90th pct 36% (40%), held-out the same; per-episode fits 11% (not transferable). Lane-change
+  time gaps within 0.1-0.3 s of NGSIM at the median
+- Lateral: SDLP 0.139 m (on-road 0.135-0.153 ✓); lane changes 0.22/veh·km (highD 0.24 ✓);
+  change duration 3.1 s (NGSIM 4.0 ± 2.3)
+- Safety at defaults (k=15, 4.1×10⁵ veh·km): 0 crashes; near-crashes 0.054 (SHRP2 all-roads
+  0.048), all cut-in-then-brake; glances > 2 s 0.7% (naturalistic ~4% — coupling, Stage 15)
+- Phase diagram (results/phase-note.md): fluid to k=25 at ≤1.0×; breaks at 25 at 1.3×,
+  16-20 at 1.6×, from 8 at 2.0× — moved inward with the NGSIM headways
+- Capacity drop (results/capdrop-note.md): 5.9-16.0% by case (vs 5-min pre-max)
 
 ## Branches / tags
 - `main` tracks origin/main; tags v0.1-v0.4.1, v0.5 (2026-09-23), **v0.6** (2026-09-24:
@@ -54,9 +52,9 @@ freeway reference and far more exposure)
   calib ~2 min per variant; capdrop ~30 min
 
 ## Next action
-Crash-type proportions need a sourced freeway reference and interchange runs at ≥10⁶
-veh·km (runner.mjs overnight). Otherwise: more capdrop seeds, the glance-rate phase
-diagram, the stochastic-breakdown curve.
+Stage 15: calibrate attention jointly with the NGSIM car-following (the glance tail), check
+the cut-in-then-brake near-crash mechanism against freeway typology, long interchange runs.
+Stage 16: SUMO side-by-side on the capacity-drop experiment.
 
 ## Blockers
 - none

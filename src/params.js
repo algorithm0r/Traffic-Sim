@@ -149,10 +149,17 @@ var PARAMETERS = {
   },
 };
 
-// Driver archetypes. IDM values follow Treiber, Hennecke & Helbing 2000 (Phys. Rev. E 62)
-// and Treiber & Kesting, *Traffic Flow Dynamics* (2013) ch. 11; the spreads reflect the
-// heterogeneity found by NGSIM trajectory calibration (Kesting & Treiber 2008): T ~ 1.0-2.2 s,
-// a ~ 0.6-1.5 m/s^2. Each [mean, sd] is sampled per driver (sd scaled by profileVariability).
+// Driver archetypes. Car-following means (T, s0, a, b) and the car shares are CALIBRATED to
+// NGSIM I-80 trajectories (Stage 14, 2026-09-24; tools/ngsim_classes.py, results/
+// ngsim-classes-fixb.json): three car classes and trucks, each one IDM parameter set fitted
+// jointly over the car-following episodes it explains best (hard-assignment EM, 877 car and
+// 49 truck episodes), bounds kept plausible at highway speed. NOT fitted: v0 (the congested
+// data never approach free speed) and b — left free, b ran to its 0.8 bound, fitting no
+// better than with b fixed (21.8% vs 21.8% median gap error), i.e. unidentifiable here; and
+// at highway speed that small b made cut-in followers brake hard (near-crashes 3.5×). b is
+// held at the literature values. Within-class spreads (sd) are the literature ones. Previously: literature ranges (Treiber, Hennecke &
+// Helbing 2000; Treiber & Kesting 2013) with assumed 20/50/20 shares. Each [mean, sd] is
+// sampled per driver (sd scaled by profileVariability).
 //   v0mult — desired speed as multiple of the limit    T — time headway (s)
 //   a — max acceleration (m/s^2)                       b — comfortable braking (m/s^2)
 //   s0 — standstill min gap (m)                        len — vehicle length (m)
@@ -177,26 +184,26 @@ var PARAMETERS = {
 //   glanceMean — s mean glance duration (SHRP2: >2 s is the risky tail)
 //   checkProb — probability the shoulder is checked before a lateral move
 var ARCHETYPES = {
-  aggressive: { share: 0.20, v0mult: [1.16, 0.05], T: [1.00, 0.10], a: [1.4, 0.10],
-                b: [2.1, 0.15], s0: [2.0, 0.20], len: 4.8, width: 1.8, politeness: 0.10,
+  aggressive: { share: 0.287, v0mult: [1.16, 0.05], T: [0.85, 0.10], a: [1.45, 0.10],
+                b: [2.1, 0.15], s0: [1.84, 0.20], len: 4.8, width: 1.8, politeness: 0.10,
                 bSafe: 5.0, exitPrep: 700,  truck: false,
                 tReact: [0.35, 0.08], percErr: [0.08, 0.02], motorErr: [0.0004, 0.00015],
                 laneTol: [0.60, 0.08],
                 loomGain: [4.0, 1.0], glanceRate: [8, 2], glanceMean: [0.9, 0.2], checkProb: [0.95, 0.02] },
-  normal:     { share: 0.50, v0mult: [1.04, 0.04], T: [1.45, 0.15], a: [1.0, 0.10],
-                b: [1.7, 0.15], s0: [2.5, 0.30], len: 4.8, width: 1.8, politeness: 0.35,
+  normal:     { share: 0.382, v0mult: [1.04, 0.04], T: [1.39, 0.15], a: [1.27, 0.10],
+                b: [1.7, 0.15], s0: [1.95, 0.30], len: 4.8, width: 1.8, politeness: 0.35,
                 bSafe: 4.0, exitPrep: 1300, truck: false,
                 tReact: [0.50, 0.12], percErr: [0.08, 0.02], motorErr: [0.0004, 0.00015],
                 laneTol: [0.75, 0.10],
                 loomGain: [3.0, 0.8], glanceRate: [6, 1.5], glanceMean: [0.8, 0.2], checkProb: [0.98, 0.01] },
-  cautious:   { share: 0.20, v0mult: [0.94, 0.04], T: [1.85, 0.20], a: [0.8, 0.08],
-                b: [1.4, 0.12], s0: [3.0, 0.30], len: 4.8, width: 1.8, politeness: 0.60,
+  cautious:   { share: 0.331, v0mult: [0.94, 0.04], T: [2.05, 0.20], a: [0.82, 0.08],
+                b: [1.4, 0.12], s0: [2.38, 0.30], len: 4.8, width: 1.8, politeness: 0.60,
                 bSafe: 3.5, exitPrep: 2000, truck: false,
                 tReact: [0.70, 0.15], percErr: [0.08, 0.02], motorErr: [0.0004, 0.00015],
                 laneTol: [0.90, 0.10],
                 loomGain: [2.5, 0.6], glanceRate: [4, 1], glanceMean: [0.7, 0.15], checkProb: [0.99, 0.01] },
-  truck:      { share: 0.10, v0mult: [0.88, 0.03], T: [1.70, 0.15], a: [0.6, 0.06],
-                b: [1.2, 0.10], s0: [3.5, 0.30], len: 16,  width: 2.5, politeness: 0.40,
+  truck:      { share: 0.10, v0mult: [0.88, 0.03], T: [1.48, 0.15], a: [0.98, 0.06],
+                b: [1.2, 0.10], s0: [2.97, 0.30], len: 16,  width: 2.5, politeness: 0.40,
                 bSafe: 3.5, exitPrep: 1800, truck: true,
                 tReact: [0.55, 0.10], percErr: [0.07, 0.02], motorErr: [0.0003, 0.0001],
                 laneTol: [0.80, 0.10],

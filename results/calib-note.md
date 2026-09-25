@@ -35,7 +35,17 @@
    earlier variant that multiplied `laneTol` by 0.6 made wander worse and was attributed to
    "held-command overshoot"; in fact it widened the band. Adopted.
 
-## Result at the calibrated defaults
+## Update: NGSIM-calibrated car-following (Stage 14)
+
+Re-running at the NGSIM-calibrated car-following classes (`ngsim-note.md`), 100 seeds × 900 s
+= 4.1×10⁵ veh·km at k=15: 0 crashes; near-crashes 0.054 per 1000 veh·km pooled (0.084 and
+0.025 in the two 50-seed halves — the realization spread again); lateral conflicts 0. Every
+near-crash is a cut-in followed by hard braking (≥0.5 g) by the vehicle that changed lanes;
+none involves a glancing follower. The shorter calibrated headways tighten the glance budget:
+glances over 2 s fell to 0.7%, below the naturalistic ~4%. Car-following and attention now
+need calibrating jointly (Stage 15). The table below is the v0.6 state, kept for the record.
+
+## Result at the calibrated defaults (v0.6)
 
 k=15 veh/km/lane, 3-lane ring, no ramps, 50 seeds × 900 s = 2.0×10⁵ veh·km:
 

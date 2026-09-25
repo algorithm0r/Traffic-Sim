@@ -3,6 +3,40 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-24 — Stage 14: car-following calibrated to NGSIM I-80 trajectories
+
+**Done:** defined Stages 14-16 from the v0.6 evaluation (trajectory calibration; safety
+exposure; SUMO comparison) and completed 14. NGSIM I-80 4:00-4:15 pm pulled from the public
+API (1.17 M rows). 927 car-following episodes ≥ 30 s. (1) Per-episode IDM fits reach 11%
+median gap error but are not transferable: half put b or s0 at a bound, v0 is unidentifiable
+at the data's 7 m/s, and the low-T/high-s0 trade-off (T 0.36 s, s0 4.3 m in the lowest
+fifth) implies half-second highway headways. (2) Population calibration instead: three car
+classes + trucks by hard-assignment EM with bounds plausible at highway speed. Free b ran
+to its 0.8 bound for three of four classes and fit no better than b fixed; adopted briefly,
+it made cut-in drivers brake hard (near-crashes 3.5×, paired test on fresh seeds), so b is
+fixed at literature values. Adopted: T 0.85/1.39/2.05/1.48 s, s0 1.84/1.95/2.38/2.97 m,
+a 1.45/1.27/0.82/0.98, car shares 29/38/33%. Gap error 21.8% vs 22.1% (median), 36.3 vs
+40.0% (90th); held-out drivers 22.3/35.7% vs 22.1/38.0%. The literature archetypes were
+already nearly as good in the median; the calibration mainly fixes the tails and the
+shares. (3) Gap acceptance at the line crossing (683 NGSIM changes vs model at matched
+congestion): time gaps within 0.1-0.3 s at the median. A first reading in metres suggested
+the model was far too conservative ahead — confounded by speed, withdrawn.
+**Consequences (everything rerun):** capacity 1836 → 1932 homogeneous; lane changes 0.13 →
+0.22/veh·km (highD 0.24); near-crashes at k=15 pooled over 4.1×10⁵ veh·km 0.054 (SHRP2
+all-roads 0.048), every one a cut-in followed by hard braking, none attention-driven; glances
+> 2 s fell to 0.7% (the tighter headways shrink the glance budget; naturalistic ~4%); phase
+boundary moved inward (1.6×: k 25 → 16-20); capacity drop 5.9-16.0%, and "humans raise the
+drop at both bottlenecks" no longer holds at the merge — withdrawn.
+**Changed:** params (archetypes), tools/ (ngsim_fetch, ngsim_common, ngsim_calib,
+ngsim_classes, ngsim_archetypes, ngsim_lanechange), probes/gapaccept.mjs, calib.mjs (oldb
+variant), results/ (ngsim-*, all tables regenerated, phase/capdrop/calib notes revised),
+DEVPLAN (Stages 14-16), README. Also: stopped two superseded runs by PID after checking
+their command lines; a syntax error in a help string silently cost one 12-minute run.
+**State:** smoke 12/12 + VALIDATION PASS + SWEEP PASS on the adopted drivers.
+**Next:** Stage 15 — joint attention/car-following calibration, the cut-in mechanism against
+freeway near-crash typology, long interchange runs; Stage 16 — SUMO.
+
+
 ## 2026-09-24 — Stage 12 cleanup: lateral calibration, three corrections, every result rerun
 
 **Done:** (1) Lane-position SD calibrated to a sourced reference. The "empirical 0.2-0.3 m"
