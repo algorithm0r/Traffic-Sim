@@ -42,8 +42,8 @@ Stage 15 `[ DONE ]` (safety exposure by traffic regime; signal-aware glances) / 
 - Capacity drop (results/capdrop-note.md): 10.9-13.9% in all five cases (vs 5-min pre-max)
 
 ## Branches / tags
-- `main` tracks origin/main; tags v0.1-v0.4.1, v0.5, v0.6 (2026-09-24), **v0.7** (2026-09-24:
-  Stage 14, NGSIM-calibrated car-following)
+- `main` tracks origin/main; tags v0.1-v0.4.1, v0.5, v0.6, v0.7 (2026-09-24), **v0.8** (2026-09-25:
+  Stage 15, safety exposure by regime)
 
 ## Open
 - Realization variance 4-5× between independent 10⁵ veh·km sets — quote spreads, not Poisson
