@@ -82,6 +82,8 @@ var PARAMETERS = {
     tMinFrac: 0.47,        // accepted headway at full desire as a fraction of T (LMRS 0.56/1.2)
     tau: 25,               // s, relaxation of the accepted headway back to the driver's own T
     bAcceptMax: 8,         // m/s^2 imposed on the new follower at full (forced) desire
+    accept: 'mobil',       // gap acceptance: 'mobil' = bSafe rising to bAcceptMax with route
+                           // desire; 'lmrs' = d·b, LMRS eq. 12 (Stage 17 test)
     followerReaction: 1.0, // s the new follower is assumed to coast before reacting to me
     courtesy: 0.35,        // desire to vacate a lane per unit of a neighbour's desire for it
                            // (sub-threshold alone: it tips a near-neutral driver, and never

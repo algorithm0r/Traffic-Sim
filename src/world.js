@@ -936,8 +936,15 @@ var World = class World {
   // willing to impose grows with necessity (a lane that ends, an exit), never with want
   // (a courtesy or speed change accepted at 6 m/s² put a 6 m/s car in front of a
   // 20 m/s one — the probe's one rear-end)
-  bAcceptAt(veh, dRoute) {
+  bAcceptAt(veh, dRoute, d) {
     const lc = PARAMETERS.lc;
+    // LMRS's own acceptance (Schakel, Knoop & van Arem 2012, eq. 12): both the changer and
+    // the new follower must keep an acceleration above −b_c·d — the changer's COMFORTABLE
+    // deceleration scaled by its total desire, never more than b even when forced. The
+    // paper sets it against MOBIL's 4 m/s², "rather high"; relaxation and synchronization
+    // do the rest. Stage 17: our MOBIL-style bound let ramp vehicles merge ~9 m/s below the
+    // mainline right after the gore, where NGSIM I-80 mergers match or exceed it.
+    if (lc.accept === 'lmrs') return clamp(d != null ? d : dRoute, 0, 1) * veh.p.b;
     const u = clamp((dRoute - lc.dFree) / (1 - lc.dFree), 0, 1);
     return veh.p.bSafe + u * (lc.bAcceptMax - veh.p.bSafe);
   }
@@ -1063,7 +1070,7 @@ var World = class World {
     const nf = g ? g.nf : this.scanBehind(veh, this.laneBand(target), 300);
     if (nl && this.gapX(veh, nl) < 0.5) return false;
     if (nf && nf !== nl && this.gapX(nf, veh) < 0.5) return false;
-    const T = this.headwayAt(veh, d), b = this.bAcceptAt(veh, veh.desireRoute);
+    const T = this.headwayAt(veh, d), b = this.bAcceptAt(veh, veh.desireRoute, d);
     const myGap = nl ? Math.max(this.gapX(veh, nl), 0.1) : null;
     if (veh.idmAcc(myGap, nl ? nl.v : 0, T) < -b) return false;
     let nfT = null, nfGap = null;

@@ -384,9 +384,15 @@ bMax on a close cut-in, not the reflex. Stricter gap acceptance does not reduce 
       Treiber & Helbing 2010) — tried (`coolness`), NOT adopted: hard braking halves but human
       drivers' crashes double (29 → 62, replicated on fresh seeds) and congestion
       over-stabilises (results/eidm-note.md). The conflicts are set by the cut-ins themselves
-- [ ] The cut-ins: why slow vehicles enter faster lanes at 11-18 m/s closing (lane-speed
-      differentials, incentive vs safety in MOBIL/LMRS, whether real drivers accept such
-      closing speeds — NGSIM lane-change closing-speed distribution)
+- [x] The cut-ins vs NGSIM I-80 (results/cutins-note.md): ordinary lane changes match real
+      ones at entry and at the centre crossing; the excess is ramp merges (TTC < 1.5 at entry 13×
+      NGSIM). Ours merge right after the gore ~9 m/s below the mainline; real mergers match
+      speed. Cause: MOBIL-style acceptance inside an LMRS desire model. LMRS's own acceptance
+      (d·b, eq. 12; `lc.accept`) removes the early merges but raises conflicts (mergers stall
+      and enter from a crawl) — not adopted yet
+- [ ] Synchronization and gap creation vs LMRS (eq. 15; Daamen: no merger overtaken by
+      several vehicles) — measure overtakings per merger (NGSIM lane 7 vs model), then adopt
+      LMRS acceptance with working synchronization/cooperation
 - [ ] How real mergers behave at the end of an acceleration lane: yield and wait vs force in
       (empirical merge-location and accepted-gap data at freeway onramps)
 - [ ] Mainline anticipation of mergers beyond the claim (earlier yielding and lane changes

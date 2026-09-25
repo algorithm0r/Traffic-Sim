@@ -5,8 +5,8 @@
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-Stage 17 `[ IN PROGRESS ]` (merge and weaving safety). Enhanced IDM tried and rejected
-(results/eidm-note.md); next, the cut-ins themselves
+Stage 17 `[ IN PROGRESS ]` (merge and weaving safety). Enhanced IDM rejected (eidm-note);
+cut-ins vs NGSIM located the excess in ramp merges (cutins-note); LMRS acceptance tested
 
 ## State
 - Program goals (DEVPLAN, 2026-09-22): (1) cleaner, less rule-based 2D model; (2) traffic
@@ -58,9 +58,8 @@ Stage 17 `[ IN PROGRESS ]` (merge and weaving safety). Enhanced IDM tried and re
 - Workstation load: keep batches ≤4 processes (an 18-process batch hard-reset the machine)
 
 ## Next action
-Stage 17: the cut-ins — why slow vehicles enter faster lanes at 11-18 m/s closing, checked
-against NGSIM lane-change closing speeds; then onramp merge behaviour, mainline anticipation,
-crash typing. Blocked item: a manual-driving glance-duration
+Stage 17: overtakings per merger (NGSIM lane 7 vs model), then synchronization and gap
+creation audited against LMRS eq. 15, then adopt LMRS acceptance if conflicts fall. Blocked item: a manual-driving glance-duration
 reference for the attention tail.
 
 ## Blockers

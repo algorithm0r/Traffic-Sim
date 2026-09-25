@@ -3,6 +3,30 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-25 — Stage 17 (2): cut-ins against NGSIM; LMRS acceptance tested
+
+**Done:** `tools/ngsim_cutins.py` (smoothed NGSIM I-80 lane changes; kinematics at the centre
+crossing and at ENTRY, when the near edge crosses the line, using lane lines inferred at 3.65 m
+spacing; the follower's hardest 1-s braking against a no-cut-in control; lane 7→6 ramp merges)
+and `probes/cutins.mjs` (the same measures in the model, ring and merge). Ordinary lane changes
+match NGSIM (ring at entry: TTC < 1.5 0.9% vs 1.3%). Ramp merges don't (8.9% vs 0.7%; closing
+> 5 m/s 17.8% vs 0.7%). Real mergers take small gaps at or above the follower's speed. Ours merge
+~50 m after the gore at ~13 m/s into 22 m/s traffic, because the LMRS time-based route desire is
+already above d_sync there and MOBIL-style acceptance (bSafe 3.5-5) takes the gap. LMRS's own
+acceptance (eq. 12, d·b, confirmed from the paper's text) was added as `lc.accept: 'lmrs'`: early
+merges vanish (closing > 8 m/s: 13.5% → 2.1%), the capacity drop falls to 7-9%, no gridlock.
+But near-crashes rise (6.3 → 9.5 merge-ideal) and crashes 9 → 17, as mergers stall and enter
+from a crawl. That is the follower-gap pattern again: LMRS's acceptance needs its
+synchronization and gap creation. Not adopted yet; the default is unchanged. Probe fix on the way:
+the control sample was dropped by a bookkeeping bug, and the probe draws its own RNG so the
+simulation stream is untouched.
+**Changed:** src/world.js (bAcceptAt: optional LMRS eq. 12), src/params.js (lc.accept 'mobil'),
+tools/ngsim_cutins.py, probes/cutins.mjs (new), results/ (cutins-note, ngsim-cutins.json,
+cutins-*, capdrop-lmrs-*, mergeconflict-lmrs.txt), DEVPLAN, STATUS.
+**State:** default model unchanged.
+**Next:** overtakings per merger (NGSIM lane 7 vs model; Daamen: no merger overtaken by several
+vehicles), then synchronization and gap creation audited against LMRS eq. 15.
+
 ## 2026-09-25 — Stage 17 (1): the Enhanced IDM tried and rejected
 
 **Done:** v0.9 tagged. (1) The Enhanced IDM's constant-acceleration heuristic (Kesting,
