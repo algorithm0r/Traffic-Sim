@@ -14,8 +14,12 @@
 - **Lane changes:** highD, 11,000 changes over 45,000 km of German motorway (0.24 per
   veh·km); cut-in follower time headways 0.1–4 s peaking at 1 s. NGSIM change duration
   4.0 ± 2.3 s, mode about 3 s (Thiemann, Treiber & Kesting 2008).
-- **Glances:** naturalistic baseline about 4% of off-road glances longer than 2 s; drivers
-  shorten glances at short headways (Tivesten & Dozza 2014).
+- **Glances:** drivers shorten glances at short headways (Tivesten & Dozza 2014). CORRECTED
+  2026-09-24: the "about 4% of off-road glances longer than 2 s" used here as a naturalistic
+  baseline came from a search summary and was measured with adaptive cruise and lane-keeping
+  assist engaged, not in manual driving. No sourced manual-driving glance-duration
+  distribution is in hand; the 100-Car odds ratios (glance away > 2 s: 0.85, CI 0.20-3.65)
+  bound risk, not frequency. The glance tail is therefore uncalibrated.
 
 ## How the defaults were reached
 
@@ -42,8 +46,15 @@ Re-running at the NGSIM-calibrated car-following classes (`ngsim-note.md`), 100 
 0.025 in the two 50-seed halves — the realization spread again); lateral conflicts 0. Every
 near-crash is a cut-in followed by hard braking (≥0.5 g) by the vehicle that changed lanes;
 none involves a glancing follower. The shorter calibrated headways tighten the glance budget:
-glances over 2 s fell to 0.7%, below the naturalistic ~4%. Car-following and attention now
-need calibrating jointly (Stage 15). The table below is the v0.6 state, kept for the record.
+glances over 2 s fell to 0.7% (no sourced manual-driving reference; see above). Car-following
+and attention interact and should be calibrated jointly once a glance reference is found. The table below is the v0.6 state, kept for the record.
+
+## Update: signal-aware glances (Stage 15)
+
+With glances also suppressed while a neighbour signals into the driver's lane (adopted from the
+interchange exposure runs, `exposure-note.md`), 100 seeds × 900 s = 4.1×10⁵ veh·km at k=15 on
+the plain ring: 0 crashes; near-crashes 0.025 per 1000 veh·km (10 events), below SHRP2's
+all-roads 0.048; lateral conflicts 0.005.
 
 ## Result at the calibrated defaults (v0.6)
 

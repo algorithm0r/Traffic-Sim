@@ -1,6 +1,6 @@
 # Reaction time as a phase-transition control parameter
 
-*Results note, revised 2026-09-24 for the NGSIM-calibrated drivers (Stage 14). Data: `phase.json` / `phase.md` (tables), `phase.html` (figure). Regenerate with `node phase.mjs --seeds 1,2,3,4,5 && node phasefig.mjs`. Model state: car-following classes calibrated to NGSIM I-80 (`ngsim-note.md`), lane keeping calibrated to on-road SDLP, glances budgeted against headway. The diagram has now been measured under three driver calibrations; how the boundary moved is below.*
+*Results note, revised 2026-09-25 for the NGSIM-calibrated drivers and signal-aware glances (Stages 14-15). Data: `phase.json` / `phase.md` (tables), `phase.html` (figure). Regenerate with `node phase.mjs --seeds 1,2,3,4,5 && node phasefig.mjs`. Model state: car-following classes calibrated to NGSIM I-80 (`ngsim-note.md`), lane keeping calibrated to on-road SDLP, glances budgeted against headway and suppressed while a neighbour signals into the driver's lane. The diagram has now been measured under four driver states; how the boundary moved is below.*
 
 ## Setup
 
@@ -16,16 +16,16 @@ ahead; a crash is any contact above 3 m/s).
 ## Finding
 
 The breakdown boundary runs diagonally through the grid. At normal and faster reaction times
-the ring is fluid through 25 veh/km/lane (43 mph, detector std 0.5 m/s) and congested but
-steady at 30 (37 mph, std 0.9); across those 18 cells near-crashes stay at or below 5.6 per
-1000 veh·km and one cell has a crash. At 1.3× the ring breaks at 25 (std 2.4, 12.8
-near-crashes); at 1.6× from 16 to 20 upward (std 2.1 to 2.6, 8 to 23 near-crashes); at 2.0×
-the detector std crosses 2 m/s even at 8. Across the boundary near-crashes rise through two
-orders of magnitude (to 750 at k=30 × 2.0) and crashes reach 5 per 1000 veh·km.
+the ring is fluid or steady at every density up to 30 veh/km/lane (37 mph and detector std
+0.4 m/s at k=30); across those 18 cells near-crashes stay at or below 1.8 per 1000 veh·km and
+no cell has a crash. At 1.3× the ring breaks at 30 (std 2.8, 9.8 near-crashes); at 1.6× at 25
+(std 4.2, 52 near-crashes); at 2.0× from 16 upward (std 2.5), with 12 borderline (std 1.7, but
+seeds from 27 to 59 mph). Across the boundary near-crashes rise through two orders of
+magnitude (to about 600 per 1000 veh·km) and crashes reach 4 per 1000 veh·km.
 
 Reaction time therefore behaves as a control parameter for the flow's phase, not merely as
 a safety parameter: the same density is fluid or broken depending on it, and the transition
-is sharp in the multiplier (between 1.0× and 1.3× at k=25; between 1.3× and 1.6× at k=20).
+is sharp in the multiplier (between 1.3× and 1.6× at k=25; between 1.6× and 2.0× at k=20).
 
 ## The boundary's position depends on the fleet
 
@@ -36,21 +36,24 @@ The diagonal has held under three driver calibrations; where it sits has not:
 | v0.5: literature car-following, unsourced wide lane keeping (SD 0.32 m) | k = 16–20 | k = 12 |
 | v0.6: lane keeping calibrated to on-road SDLP (0.15 m) | k = 25 | k = 12–20 |
 | Stage 14: car-following calibrated to NGSIM I-80 | k = 16–20 | k = 8–12 |
+| Stage 15: + no glances while a neighbour signals into the lane | k = 25 | k = 16 (12 borderline) |
 
 Two micro parameters move it. Lateral precision: a wandering fleet changes lanes more (drivers
 near a line inherit the next lane's leader), and each change is a perturbation. And the
 headway distribution: the NGSIM classes put 29% of drivers at a 0.85 s headway, and a short
 headway held with a slow reaction is unstable — the classic condition that a car-following
-loop is stable only when the headway comfortably exceeds the reaction delay. The sensitivity
+loop is stable only when the headway comfortably exceeds the reaction delay. And attention
+near lane changes: suppressing glances while a neighbour signals into the lane removed a class of
+late, hard brakings at cut-ins and moved the boundary back out. The sensitivity
 is itself a result: a fleet's breakdown density depends on the joint distribution of reaction
 times and headways, not on either alone.
 
 ## The transition is metastable
 
 In cells on the boundary, individual realizations either break down or do not. At k=16 × 2.0
-the five seeds span 15 to 50 mph; at k=20 × 1.6, 31 to 50 mph; at k=12 × 2.0 near-crashes
-range from 4 to 112 per 1000 veh·km. Away from the boundary the spreads are narrow (k=25 ×
-1.0: 43–44 mph). This is the signature of a first-order-like transition in a finite closed
+the five seeds span 13 to 53 mph; at k=12 × 2.0, 27 to 59 mph; at k=20 × 2.0 near-crashes
+range from 142 to 257 per 1000 veh·km. Away from the boundary the spreads are narrow (k=30 ×
+1.0: 36–38 mph). This is the signature of a first-order-like transition in a finite closed
 system: a perturbation of sufficient size tips the ring into a jam that then persists, and
 whether one occurs within 600 s is a matter of the realization. It is also why near-crash
 counts spread 3–5× between independent seed sets at fixed parameters (`calib-note.md`).

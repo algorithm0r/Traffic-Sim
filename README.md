@@ -31,6 +31,9 @@ the shared engine v2.
   data/, gitignored), then `tools/ngsim_calib.py` (per-episode), `tools/ngsim_classes.py --fix-b
   [--holdout]` (the adopted population calibration), `tools/ngsim_lanechange.py`; written up in
   `results/ngsim-note.md`.
+- **Safety exposure:** `node exposure.mjs [--params JSON --out name]` — ~1 h on 14 workers; the
+  interchange loop across five densities, crash types and rates → `results/exposure.{md,json}`;
+  written up in `results/exposure-note.md`.
 - **Open road / lane drops / deceleration lanes:** `openRoad`, `upstreamDemand`,
   `laneDropAt`, `decelLaneLength` in `src/params.js`.
 - **Live:** https://algorithm0r.github.io/Traffic-Sim/

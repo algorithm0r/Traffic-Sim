@@ -1169,9 +1169,23 @@ var World = class World {
           const closing = veh.v - lead.v;
           if (closing > 0) closingRate = closing / Math.max(this.gapX(veh, lead), 0.1);
         }
+        let merging = false;   // a neighbour signalling into my lane (Stage 15 variant)
+        if (A.signalAware) {
+          const n = this.all.length;
+          for (let k2 = 1; k2 < n && !merging; k2++) {
+            for (const o of [this.all[(veh.allIdx + k2) % n], this.all[(veh.allIdx - k2 + n) % n]]) {
+              if (o === veh) continue;
+              const ahead = this.distAhead(veh.x, o.x), behind = this.distAhead(o.x, veh.x);
+              if (Math.min(ahead, behind) > 80) continue;
+              if (o.signal === veh.lane && (ahead <= 80 || behind <= 30)) { merging = true; break; }
+            }
+            if (Math.min(this.distAhead(veh.x, this.all[(veh.allIdx + k2) % n].x),
+                         this.distAhead(this.all[(veh.allIdx - k2 + n) % n].x, veh.x)) > 80) break;
+          }
+        }
         const stable = !veh.changing && Math.abs(veh.psi) < 0.012 &&
                        Math.abs(veh.heldDelta) < 0.001 && this.keepTarget(veh) == null &&
-                       closingRate < 0.15;
+                       closingRate < 0.15 && !merging;
         if (!stable) veh.nextGlance = this.time + 0.5;
         else {
           let dur = veh.p.glanceMean *

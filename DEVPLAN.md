@@ -337,20 +337,45 @@ aggregate target; none is fitted to trajectories, the field's standard of eviden
 trajectory error reported against the pre-calibration baseline, and every suite passes.
 ✓ 2026-09-24 (results/ngsim-note.md).
 
-### Stage 15 — Safety exposure and joint calibration  [ ACTIVE ]
+### Stage 15 — Safety exposure and joint calibration  [ DONE ]
 - [ ] Joint calibration of attention with car-following: the NGSIM headways tighten the
-      glance budget (glances > 2 s: 0.7% vs naturalistic ~4%)
-- [ ] The cut-in-then-brake mechanism: every near-crash at calibrated defaults is a changer
-      braking ≥ 0.5 g right after cutting in — check against freeway near-crash typology
-- [ ] A sourced freeway crash-type distribution (FARS/CRSS by roadway function, or a
-      freeway naturalistic subset)
-- [ ] Interchange-geometry runs at ≥10⁶ veh·km (runner.mjs → Mongo, overnight): crash and
-      near-crash rates and crash-type shares against it
+      glance budget (glances > 2 s: 0.7%). BLOCKED on a reference: the "naturalistic ~4%"
+      used since Stage 12 was measured with ACC + lane-keeping assist (corrected 2026-09-24);
+      a manual-driving glance-duration distribution (100-Car / SHRP2 baseline epochs) is needed
+- [x] The cut-in-then-brake mechanism checked: freeway near-crashes in SHRP2 are mostly
+      rear-end and sideswipe avoidance around merging and lane changing (FHWA freeway-ops
+      report) — consistent in kind; the model's interchange rates are far higher in degree
+- [x] A freeway-specific reference: Golob, Recker & Alvarez (Orange County, six freeways,
+      >1000 crashes, 8 traffic regimes), via FHWA's SHRP2 freeway-operations report fig. 4:
+      heavily congested flow 83% rear-end; heavy variable free flow 79% rear-end + lane-change;
+      light free flow 47% lane-change crashes. The crash MIX shifts with traffic state
+- [x] `exposure.mjs` (results/exposure-note.md): interchange loop, 5 densities × 100 seeds,
+      4.7 M veh·km. The SHIFT matches Golob (rear-end share doubles into congestion); the
+      LEVELS don't (lane-change involved 74-92% everywhere). Mechanism traced: forced merges
+      meeting a follower whose glance overlapped the conflict's onset; rear strikes on mergers
+      read as sideswipes by the geometric classifier
+- [x] Signal-aware glances adopted (no glance begins while a neighbour signals into my lane):
+      paired seeds, crashes 45→31 (k=8), 45→27 (k=20). Capping forced merges at 5 m/s²
+      tested and rejected (worse in light traffic)
 **Done when:** crash-type shares and rates at calibrated defaults are compared with a
-freeway-specific reference.
+freeway-specific reference, by traffic regime. ✓ 2026-09-25 (results/exposure-note.md) —
+compared; the model over-produces lane-change crashes (Stage 17).
 
 ### Stage 16 — Cross-model comparison  [ PLANNED ]
 - [ ] The capacity-drop experiment reproduced in SUMO (IDM + LC2013 and the sublane model;
       `pip install eclipse-sumo`), same geometry and demand profile
 - [ ] Where the numbers differ, trace which mechanism differs
 **Done when:** the capacity-drop result is reported for this model and SUMO side by side.
+
+### Stage 17 — Merge and weaving safety  [ PLANNED ]
+Stage 15's open finding: at interchanges three quarters or more of crashes involve a lane
+change or merge at every density (Golob: rear-ends prevail at 54-83% in congestion), and
+evasive near-crashes run far above naturalistic rates. The merge process itself, not
+attention, drives it.
+- [ ] How real mergers behave at the end of an acceleration lane: yield and wait vs force in
+      (empirical merge-location and accepted-gap data at freeway onramps)
+- [ ] Mainline anticipation of mergers beyond the claim (earlier yielding and lane changes
+      away from the ramp), and whether the heading cap lets slow changers cut in too sharply
+- [ ] Crash typing closer to police coding (struck-merger rear strikes vs true sideswipes)
+**Done when:** lane-change involvement at interchanges falls toward Golob's regime shares
+without losing the capacity-drop and phase results.

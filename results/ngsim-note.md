@@ -86,7 +86,7 @@ stop-and-go waves.
 | lane-position SD | 0.147 m | 0.139 m |
 | lane changes per veh·km (highD 0.24) | 0.13 | 0.22 |
 | near-crashes per 1000 veh·km, k=15, pooled 4×10⁵ veh·km (SHRP2 all roads 0.048) | 0.010 | 0.054 |
-| off-road glances longer than 2 s (naturalistic ~4%) | 5.5% | 0.7% |
+| off-road glances longer than 2 s (no sourced manual-driving reference) | 5.5% | 0.7% |
 
 - Capacity moved toward US values without being tuned for it, but remains below them.
 - The lane-change rate now matches highD's: the wider headway spread gives drivers reasons to
@@ -96,7 +96,8 @@ stop-and-go waves.
   follower. The shorter calibrated headways also tighten the glance budget, so long glances
   are now rarer than the naturalistic baseline: the attention and car-following calibrations
   interact and should next be done jointly (Stage 15).
-- The phase diagram's boundary moved inward at slow reaction times (`phase-note.md`).
+- The phase diagram's boundary moved inward at slow reaction times (`phase-note.md`); the
+  Stage 15 glance rule later moved it back out.
 - The capacity drop stays in the empirical band (5.9–16.0% by case, `capdrop-note.md`), but
   the earlier "humans raise the drop at both bottlenecks" no longer holds at the merge.
 

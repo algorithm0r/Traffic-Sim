@@ -110,6 +110,10 @@ var PARAMETERS = {
     departSpeed: 8,        // m/s, leaving the pavement above this is a run-off-road crash
     shoulder: 1.5,         // m of shoulder beyond each pavement edge a body may straddle
     periphTol: 0.15,       // m from the lane line at which peripheral vision notices the body's edge
+    signalAware: true,     // no glance begins while a vehicle within 80 m ahead or 30 m behind signals
+                           // into my lane — a merging neighbour is driving demand (Tivesten & Dozza:
+                           // glances adapt to demand). Adopted 2026-09-24 (Stage 15): on the interchange
+                           // loop, paired seeds, crash events 45→31 (k=8) and 45→27 (k=20)
     glanceHeadwayFrac: 0.5, // a glance is capped at this fraction of the time headway (Tivesten &
                            // Dozza 2014: drivers shorten glances at short headways). Adopted
                            // 2026-09-23: on the same 25 seeds it cut near-crashes 27 → 8 and

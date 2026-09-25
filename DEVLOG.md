@@ -3,6 +3,36 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-25 — Stage 15: safety exposure by traffic regime; signal-aware glances
+
+**Done:** v0.7 tagged. (1) References: Golob, Recker & Alvarez's regime-classified Orange County
+freeway crashes (via FHWA's SHRP2 freeway-operations report, read from the PDF): the prevailing
+crash type shifts from lane-change/rear-end in low-flow free flow to rear-end (54-83%) in
+congestion. Correction: the "naturalistic ~4% of glances > 2 s" used since Stage 12 was
+measured with ACC + lane-keeping assist — withdrawn; no manual-driving glance reference yet,
+so the glance tail is marked uncalibrated. (2) `exposure.mjs`: the interchange loop at five
+densities, 100 seeds × 25 min each, parallel workers (seeded traffic made through traffic so
+density holds). 4.7 M veh·km. The shift direction matches Golob; the levels don't — lane-change
+involved 74-92% at every density. Near-crashes at interchanges far above naturalistic, while the
+plain ring sits below SHRP2. (3) Mechanism (probes/crashcontext.mjs, probes/sideswipe.mjs): every
+crashing changer had checked its shoulder and nobody was glancing AT contact; the typical crash
+is a forced merge meeting a follower whose glance overlapped the conflict's onset, striking the
+merger's rear corner while still offset (so the geometric classifier calls it a sideswipe).
+(4) Variants, paired seeds: glances suppressed while a neighbour signals into my lane cut crashes
+45→31 (k=8) and 45→27 (k=20) — adopted; capping forced merges at 5 m/s² made light traffic worse
+(70) — rejected. Neither moves the lane-change share: the merge process itself is the open
+problem (Stage 17 planned).
+**Changed:** params (attention.signalAware = true), world (glance precondition), exposure.mjs
+(new; --params, --out), probes/crashcontext.mjs, probes/sideswipe.mjs, results/ (exposure*,
+exposure-note; phase, capdrop, calib regenerated and notes revised), DEVPLAN (Stage 15 done,
+Stage 17 planned), README, STATUS.
+**State:** smoke PASS + VALIDATION PASS + SWEEP PASS. Plain ring near-crashes 0.025 (below
+SHRP2); interchange crash rate 0.040/1000 veh·km; phase boundary back out (1.6×: k=25);
+capacity drop 10.9-13.9% all cases.
+**Next:** Stage 17 (merge and weaving safety) or Stage 16 (SUMO); a manual-driving glance
+reference when one can be sourced.
+
+
 ## 2026-09-24 — Stage 14: car-following calibrated to NGSIM I-80 trajectories
 
 **Done:** defined Stages 14-16 from the v0.6 evaluation (trajectory calibration; safety

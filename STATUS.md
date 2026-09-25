@@ -1,12 +1,12 @@
 # Traffic Sim — STATUS
 *One screen. The current pulse. Overwritten, never appended — for history read DEVLOG.*
 
-**Updated:** 2026-09-24 (Stage 14 done) — refreshed every session close; may carry unverified claims
+**Updated:** 2026-09-25 (Stage 15 done) — refreshed every session close; may carry unverified claims
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-Stage 14 `[ DONE ]` (car-following calibrated to NGSIM I-80) / Stage 15 `[ ACTIVE ]`
-(safety exposure + joint attention/car-following calibration) / Stage 16 `[ PLANNED ]` (SUMO)
+Stage 15 `[ DONE ]` (safety exposure by traffic regime; signal-aware glances) / Stage 16
+`[ PLANNED ]` (SUMO) / Stage 17 `[ PLANNED ]` (merge and weaving safety — the open finding)
 
 ## State
 - Program goals (DEVPLAN, 2026-09-22): (1) cleaner, less rule-based 2D model; (2) traffic
@@ -28,18 +28,18 @@ Stage 14 `[ DONE ]` (car-following calibrated to NGSIM I-80) / Stage 15 `[ ACTIV
   heading capped by length (the open-road merge exposed cab overshoot at the ideal point)
 
 ## Metrics
-- Controls: FD ≈1% of analytic; capacity 1932 (homogeneous, was 1836) and 1698 mixed fleet;
-  waves 13 km/h; ring embodiment deltas ≤1.4%; bicycle bottleneck 1527 veh/h/ln, 0 grazes
-- NGSIM (results/ngsim-note.md): 877 car episodes; population gap error 21.8% (was 22.1%),
-  90th pct 36% (40%), held-out the same; per-episode fits 11% (not transferable). Lane-change
-  time gaps within 0.1-0.3 s of NGSIM at the median
-- Lateral: SDLP 0.139 m (on-road 0.135-0.153 ✓); lane changes 0.22/veh·km (highD 0.24 ✓);
-  change duration 3.1 s (NGSIM 4.0 ± 2.3)
-- Safety at defaults (k=15, 4.1×10⁵ veh·km): 0 crashes; near-crashes 0.054 (SHRP2 all-roads
-  0.048), all cut-in-then-brake; glances > 2 s 0.7% (naturalistic ~4% — coupling, Stage 15)
-- Phase diagram (results/phase-note.md): fluid to k=25 at ≤1.0×; breaks at 25 at 1.3×,
-  16-20 at 1.6×, from 8 at 2.0× — moved inward with the NGSIM headways
-- Capacity drop (results/capdrop-note.md): 5.9-16.0% by case (vs 5-min pre-max)
+- Controls: FD ≈1% of analytic; capacity 1932 (homogeneous) and 1698 mixed fleet; waves
+  13 km/h; bicycle bottleneck ≥80% of lane body; all suites PASS
+- NGSIM (results/ngsim-note.md): population gap error 21.8% (was 22.1%), 90th pct 36% (40%),
+  held-out the same; lane-change time gaps within 0.1-0.3 s of NGSIM at the median
+- Lateral: SDLP 0.139-0.147 m ✓; lane changes 0.22/veh·km (highD 0.24) ✓; duration 3.1 s
+- Plain ring k=15, 4.1×10⁵ veh·km: 0 crashes, near-crashes 0.025 (SHRP2 all-roads 0.048)
+- Interchange exposure (results/exposure-note.md, 4.7 M veh·km): 0.040 crashes per 1000
+  veh·km; rear-end share 24% → 42-50% into congestion (Golob's direction) but lane-change
+  involved 74-92% everywhere (Golob: rear-ends prevail in congestion) — Stage 17
+- Phase diagram (results/phase-note.md): steady to k=30 at ≤1.0×; breaks at 30 at 1.3×, 25
+  at 1.6×, from 16 at 2.0×. Position depends on headways, lateral precision and attention
+- Capacity drop (results/capdrop-note.md): 10.9-13.9% in all five cases (vs 5-min pre-max)
 
 ## Branches / tags
 - `main` tracks origin/main; tags v0.1-v0.4.1, v0.5, v0.6 (2026-09-24), **v0.7** (2026-09-24:
@@ -52,9 +52,9 @@ Stage 14 `[ DONE ]` (car-following calibrated to NGSIM I-80) / Stage 15 `[ ACTIV
   calib ~2 min per variant; capdrop ~30 min
 
 ## Next action
-Stage 15: calibrate attention jointly with the NGSIM car-following (the glance tail), check
-the cut-in-then-brake near-crash mechanism against freeway typology, long interchange runs.
-Stage 16: SUMO side-by-side on the capacity-drop experiment.
+Stage 17: merge and weaving safety (empirical onramp merge behaviour; mainline anticipation;
+crash typing). Stage 16: SUMO side by side. Blocked item: a manual-driving glance-duration
+reference for the attention tail.
 
 ## Blockers
 - none

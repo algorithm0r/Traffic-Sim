@@ -1,6 +1,6 @@
 # Capacity drop on the open road
 
-*Results note, revised 2026-09-24 for the NGSIM-calibrated drivers (Stage 14). Data: `capdrop.md` (table), `capdrop.json` (per-run minute series). Regenerate with `node capdrop.mjs --seeds 1..5` (~30 min on a multi-core machine). Earlier versions of this note reported the v0.6 drivers; that table is kept below for comparison.*
+*Results note, revised 2026-09-25 for the NGSIM-calibrated drivers with signal-aware glances (Stages 14-15). Data: `capdrop.md` (table), `capdrop.json` (per-run minute series). Regenerate with `node capdrop.mjs --seeds 1..5` (~30 min on a multi-core machine). Earlier versions of this note reported the v0.6 drivers; that table is kept below for comparison.*
 
 ## Protocol
 
@@ -22,15 +22,15 @@ between. Five seeds per case.
 |---|---|---|---|
 | merge, 1D lane body, ideal drivers | 13.9% (9.6–17.9) | 8.0% (4.3–11.3) | 17.4% |
 | merge, bicycle body, ideal | 13.8% (8.5–20.1) | 3.1% (−4.7–14.2) | 8.9% |
-| merge, bicycle body, human | 5.9% (−0.2–10.1) | −0.4% (−10.2–6.9) | 10.8% |
+| merge, bicycle body, human | 10.9% (6.4–19.3) | 1.0% (−15.4–9.5) | 10.8% |
 | lane drop, bicycle, ideal | 12.1% (4.0–18.1) | −4.0% (−27.3–7.7) | 7.8% |
-| lane drop, bicycle, human | 16.0% (8.7–24.5) | 6.4% (−6.8–19.0) | 20.0% |
+| lane drop, bicycle, human | 12.8% (8.2–16.0) | 4.3% (−8.2–12.0) | 20.0% |
 
 Drops are seed means with the seed range in brackets. Every run broke down; no run stalled.
 
-On the literature's measure four case means lie inside the empirical 5–20% band and the
-human merge sits at its lower edge (5.9%) — the Stage 13 done-when, re-confirmed on the
-NGSIM-calibrated drivers.
+On the literature's measure all five case means lie inside the empirical 5–20% band (10.9–13.9%)
+— the Stage 13 done-when, re-confirmed on the NGSIM-calibrated drivers with signal-aware
+glances (Stage 15).
 
 ## Reading
 
@@ -42,9 +42,9 @@ NGSIM-calibrated drivers.
   capacity (breakdown probability rising with flow), and it is why the 2D drop is smaller:
   the pre-breakdown flow is lower, not the discharge higher.
 - **Human versus ideal drivers: not robust.** On the v0.6 drivers humans raised the drop at
-  both bottlenecks. On the NGSIM-calibrated drivers they still do at the lane drop (16.0% vs
-  12.1%) but not at the merge (5.9% vs 13.8%), with overlapping seed ranges. Five seeds per
-  case cannot separate these; the claim is withdrawn until more seeds settle it.
+  both bottlenecks. On the current drivers human and ideal drops are within a few points of
+  each other at both (merge 10.9% vs 13.8%, lane drop 12.8% vs 12.1%), with overlapping seed
+  ranges. Five seeds per case cannot separate these; the claim is withdrawn.
 - **The spread is wide.** Single seeds range from a slightly negative drop to 27%. That is
   also the empirical picture (Chung et al. 2007 report 3–18% across sites), but five seeds
   cannot pin a case's mean to better than about ±4 percentage points.
