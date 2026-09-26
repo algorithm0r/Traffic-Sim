@@ -1,0 +1,4 @@
+merge, human drivers, seeds 1,2, {"lc":{"s0MinFrac":0.47}}
+  all mergers (n=1251, median 34.5 s beside the mainline): overtaken by 0: 32.7%  1: 18.5%  2: 10.0%  3+: 38.8%   mean 3.22
+  merge speed <= 12 m/s (NGSIM-like) (n=922, median 46.8 s beside the mainline): overtaken by 0: 24.9%  1: 13.2%  2: 10.6%  3+: 51.2%   mean 4.13
+  merge speed > 12 m/s (n=329, median 5.2 s beside the mainline): overtaken by 0: 54.4%  1: 33.1%  2: 8.2%  3+: 4.3%   mean 0.67

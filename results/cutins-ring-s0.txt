@@ -1,0 +1,16 @@
+ring k=45, seeds 1,2,3, human drivers; mean speed 8.9 m/s; {"lc":{"s0MinFrac":0.47}}
+
+mainline changes: n=1903, changer speed 4.37 / 8.46 / 13.09 / 18.07 / 20.64 / 25.70
+  closing (lag - changer) m/s -2.25 / -1.14 / -0.14 / 0.85 / 2.04 / 4.80
+    share closing > 2 / 5 / 8 / 11 m/s: 10.5% / 0.8% / 0.1% / 0.0%
+  required decel m/s²        0.00 / 0.00 / 0.00 / 0.02 / 0.11 / 0.53
+    share > 1 / 2 / 3.4 / 4.9: 0.1% / 0.1% / 0.1% / 0.1%;  TTC < 1.5 s: 0.1%
+  lag hardest 1-s decel      -2.29 / -1.30 / -0.53 / -0.07 / 0.29 / 0.72
+    share > 1 / 2 / 3 / 4.9: 32.4% / 12.2% / 5.9% / 1.4%
+
+mainline changes AT ENTRY (near edge crosses the line): n=1966
+  lag gap m 4.25 / 8.12 / 14.35 / 24.42 / 35.86 / 65.46   closing m/s -1.57 / -0.48 / 0.58 / 1.79 / 3.19 / 6.89
+  share closing > 2 / 5 / 8: 21.8% / 2.7% / 0.4%;  required > 2 / 3.4 / 4.9: 0.5% / 0.3% / 0.1%;  TTC < 1.5 s: 1.4%
+
+control (random moments), n=237: hardest 1-s decel -0.88 / -0.44 / -0.16 / 0.05 / 0.27 / 0.56
+    share > 1 / 2 / 3 / 4.9: 6.8% / 2.5% / 0.0% / 0.0%

@@ -957,6 +957,15 @@ var World = class World {
     const lc = PARAMETERS.lc;
     return Math.min(veh.Teff, veh.p.T * (1 - (1 - lc.tMinFrac) * clamp(d || 0, 0, 1)));
   }
+  // accepted standstill gap at desire d — LMRS's relaxation extended from T to s0, for EVERY
+  // lane change (Stage 17, Chris: "why not let all accept shorter gaps? so it's not merger
+  // logic"). IDM's s0 (1.8-3 m) read the 0.8-7 m gaps real I-80 changers take at matched
+  // speed as emergencies; relaxing the whole desired gap s* = s0 + vT by desire lets the
+  // changer accept, and the new follower keep, a tight gap that then grows back (tau).
+  s0At(veh, d) {
+    const lc = PARAMETERS.lc;
+    return Math.min(veh.s0eff, veh.p.s0 * (1 - (1 - lc.s0MinFrac) * clamp(d || 0, 0, 1)));
+  }
   // deceleration a changer may impose (on itself and its new follower): the driver's
   // bSafe, rising to the forced-merge bound with ROUTE desire only — what a driver is
   // willing to impose grows with necessity (a lane that ends, an exit), never with want
@@ -1096,14 +1105,14 @@ var World = class World {
     const nf = g ? g.nf : this.scanBehind(veh, this.laneBand(target), 300);
     if (nl && this.gapX(veh, nl) < 0.5) return false;
     if (nf && nf !== nl && this.gapX(nf, veh) < 0.5) return false;
-    const T = this.headwayAt(veh, d), b = this.bAcceptAt(veh, veh.desireRoute, d);
+    const T = this.headwayAt(veh, d), S0 = this.s0At(veh, d), b = this.bAcceptAt(veh, veh.desireRoute, d);
     const myGap = nl ? Math.max(this.gapX(veh, nl), 0.1) : null;
-    if (veh.idmAcc(myGap, nl ? nl.v : 0, T) < -b) return false;
-    let nfT = null, nfGap = null;
+    if (veh.idmAcc(myGap, nl ? nl.v : 0, T, S0) < -b) return false;
+    let nfT = null, nfS0 = null, nfGap = null;
     if (nf && nf !== nl) {
-      nfT = this.headwayAt(nf, d);
+      nfT = this.headwayAt(nf, d); nfS0 = this.s0At(nf, d);
       nfGap = Math.max(this.gapX(nf, veh), 0.1);
-      if (nf.idmAcc(nfGap, veh.v, nfT) < -b) return false;
+      if (nf.idmAcc(nfGap, veh.v, nfT, nfS0) < -b) return false;
       // and the braking the follower will actually need: now, and after the maneuver
       // time if it does nothing while I get going (a stopped merger accepting an 80 m
       // gap in 24 m/s traffic passed IDM's test and aborted two seconds later, 1800
@@ -1113,6 +1122,8 @@ var World = class World {
     // relaxation: accept the headway you were given, down to the desire-scaled minimum
     if (myGap != null) veh.Teff = clamp(myGap / Math.max(veh.v, 1), T, veh.Teff);
     if (nfT != null) nf.Teff = clamp(nfGap / Math.max(nf.v, 1), nfT, nf.Teff);
+    if (myGap != null) veh.s0eff = clamp(myGap, S0, veh.s0eff);
+    if (nfS0 != null) nf.s0eff = clamp(nfGap, nfS0, nf.s0eff);
     veh.startLane = veh.lane;
     veh.targetLane = target;
     veh.changing = true;
@@ -1505,6 +1516,7 @@ var World = class World {
 
       // relaxation: an accepted short headway grows back to the driver's own
       if (veh.Teff < veh.p.T) veh.Teff = Math.min(veh.p.T, veh.Teff + (veh.p.T - veh.Teff) * dt / lc.tau);
+      if (veh.s0eff < veh.p.s0) veh.s0eff = Math.min(veh.p.s0, veh.s0eff + (veh.p.s0 - veh.s0eff) * dt / lc.tau);
 
       // road edges: the left edge, and the pavement edge (which closes along a taper).
       // A through-lane body may straddle onto the shoulder; its CENTRE leaving the

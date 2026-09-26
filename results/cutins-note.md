@@ -129,6 +129,29 @@ The zipper needs either smaller accepted gaps at low speed (relaxing s0 as well 
 merge), or cooperation that starts before d_coop, or both. That is a design choice
 calibrated against the lane-7 statistics above.
 
+## Relaxing the standstill gap for every lane change (`lc.s0MinFrac`)
+
+Chris's suggestion was to let *all* lane changes accept shorter gaps rather than write merge
+logic. LMRS already relaxes the headway T by desire for every change (eq. 13). Extending the
+same relaxation to s0 means the whole desired gap s* = s0 + vT shrinks by desire. The changer
+accepts, and the new follower keeps, a tight gap that grows back with τ = 25 s. At
+s0MinFrac = 0.47 (the same fraction as T):
+
+- **Ordinary lane changes match NGSIM more closely.** On the ring at entry, the follower-gap
+  10th percentile goes from 5.33 m to 4.25 m (NGSIM 4.23) and TTC < 1.5 from 0.9% to 1.4%
+  (NGSIM 1.3%). The data supports the change for all lane changes, not just merges.
+- **The zipper improves by half.** Congested mergers (human) are overtaken 4.1 times on
+  average (51% by 3+). Adding LMRS gap creation brings that to 2.5 (38% by 3+), against NGSIM's
+  0.21 (0% by 3+).
+- **Safety and flow, both together** (5 seeds, four cases):
+  - Near-crashes fall with ideal drivers (merge 6.3 → 4.2, drop 6.2 → 5.0) and are mixed with
+    human drivers (merge 16.1 → 15.2, drop 17.9 → 20.1). Crashes go from 9 to 7.
+  - Shorter accepted gaps raise the pre-breakdown peak (merge-ideal 1595 → 1688, drop-ideal
+    1552 → 1759), while discharge is unchanged. So the drop grows, to 24% at the ideal lane
+    drop, above the empirical 5–20%.
+
+Not adopted yet. Defaults are unchanged.
+
 ## Caveats
 
 - **Congested data only.** NGSIM I-80 is congested (changers under 12 m/s at the 90th

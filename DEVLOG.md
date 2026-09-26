@@ -3,6 +3,22 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-26 — Stage 17 (4): relaxing s0 for every lane change
+
+**Done:** Chris: "why not let all accept shorter gaps? so it's not merger logic". LMRS relaxation
+now extends from T to s0 for every lane change (s0At, s0eff relaxing with tau; idmAcc takes an
+S0; `lc.s0MinFrac`, 1 = off). At 0.47: ordinary lane changes match NGSIM more closely (ring at
+entry: follower-gap 10th percentile 4.25 m vs NGSIM 4.23; TTC < 1.5 1.4% vs 1.3%). Congested
+mergers overtaken 5.2 → 4.1, and 2.5 with LMRS gap creation (NGSIM 0.21). With both:
+near-crashes fall with ideal drivers (−20 to −33%) and are mixed with human; crashes 9 → 7. The
+pre-breakdown peak rises (drop-ideal 1552 → 1759) with unchanged discharge, so the drop grows
+(drop-ideal 24%, above the empirical range). Not adopted; defaults unchanged, smoke PASS.
+**Changed:** src/agent.js (s0eff; idmAcc S0 argument), src/world.js (s0At; acceptance and
+relaxation), src/params.js (lc.s0MinFrac 1), results/ (overtakes-human-s0*, cutins-ring-s0*,
+capdrop-s0coop-*, mergeconflict-s0coop.txt, cutins-note).
+**Next:** with Chris: the remaining zipper gap (cooperation onset) and whether to adopt s0
+relaxation + LMRS gap creation as defaults (then regenerate phase, capdrop, exposure).
+
 ## 2026-09-25 — Stage 17 (3): the missing zipper
 
 **Done:** `tools/ngsim_overtakes.py`: NGSIM I-80 onramp mergers (lane 7 → 6, n=200) are

@@ -80,6 +80,7 @@ var PARAMETERS = {
     x0: 295,               // m, route look-ahead per required change for a VISIBLE lane end (LMRS)
     t0: 43,                // s, time-based route look-ahead per required change (LMRS)
     tMinFrac: 0.47,        // accepted headway at full desire as a fraction of T (LMRS 0.56/1.2)
+    s0MinFrac: 1,          // the same for the standstill gap s0 (1 = no relaxation; Stage 17)
     tau: 25,               // s, relaxation of the accepted headway back to the driver's own T
     bAcceptMax: 8,         // m/s^2 imposed on the new follower at full (forced) desire
     accept: 'mobil',       // gap acceptance: 'mobil' = bSafe rising to bAcceptMax with route

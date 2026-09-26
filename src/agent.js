@@ -77,6 +77,7 @@ var Vehicle = class Vehicle {
 
     // --- lane-change desire state (Stage 10; bicycle body) ---
     this.Teff = profile.T;    // effective time headway: accepted at a change, relaxes to p.T
+    this.s0eff = profile.s0;  // effective standstill gap: the same relaxation (lc.s0MinFrac)
     this.desire = 0;          // 0..1 toward desireLane (the best side this decision)
     this.desireLane = null;
     this.signal = null;       // lane indicated (desire >= dSync, or committed)
@@ -167,12 +168,12 @@ var Vehicle = class Vehicle {
   // s == null means free road. Result is capped at the physical braking limit.
   // T overrides the headway (desire-scaled evaluations); default is the effective
   // headway, which equals p.T except while relaxing after an accepted short gap.
-  idmAcc(s, vL, T) {
+  idmAcc(s, vL, T, S0) {
     const p = this.p, v = this.v, v0 = p.desiredSpeed();
     const free = 1 - Math.pow(v / v0, PARAMETERS.delta);
     if (s == null) return p.a * free;
     const Th = T != null ? T : this.Teff;
-    const sStar = p.s0 + Math.max(0, v * Th + v * (v - vL) / (2 * Math.sqrt(p.a * p.b)));
+    const sStar = (S0 != null ? S0 : this.s0eff) + Math.max(0, v * Th + v * (v - vL) / (2 * Math.sqrt(p.a * p.b)));
     const acc = p.a * (free - (sStar / Math.max(s, 0.1)) * (sStar / Math.max(s, 0.1)));
     return Math.max(acc, -PARAMETERS.bMax);
   }
