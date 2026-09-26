@@ -390,9 +390,15 @@ bMax on a close cut-in, not the reflex. Stricter gap acceptance does not reduce 
       speed. Cause: MOBIL-style acceptance inside an LMRS desire model. LMRS's own acceptance
       (d·b, eq. 12; `lc.accept`) removes the early merges but raises conflicts (mergers stall
       and enter from a crawl) — not adopted yet
-- [ ] Synchronization and gap creation vs LMRS (eq. 15; Daamen: no merger overtaken by
-      several vehicles) — measure overtakings per merger (NGSIM lane 7 vs model), then adopt
-      LMRS acceptance with working synchronization/cooperation
+- [x] Overtakings per merger (tools/ngsim_overtakes.py, probes/overtakes.mjs): NGSIM I-80
+      lane 7 mean 0.21, none overtaken by 3+; model 5-10 in congestion, 48-76% by 3+. Our gap
+      creation GATES claims (LMRS clamps at −b; `lc.coop: 'lmrs'` added, helps partly); only
+      the queue head claims (desire ≥ d_coop within ~60 m of the end); real mergers accept
+      0.8-7 m gaps at matched speed that IDM's s0 forbids
+- [ ] The zipper: calibrate the merge process to NGSIM lane 7 (overtakings, time in the
+      auxiliary lane, gap and speed difference at entry) — levers: s0 relaxation during a
+      merge, cooperation onset (d_sync vs d_coop), LMRS acceptance + clamp. Design decision
+      with Chris
 - [ ] How real mergers behave at the end of an acceleration lane: yield and wait vs force in
       (empirical merge-location and accepted-gap data at freeway onramps)
 - [ ] Mainline anticipation of mergers beyond the claim (earlier yielding and lane changes

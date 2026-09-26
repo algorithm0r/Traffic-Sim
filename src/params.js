@@ -89,6 +89,8 @@ var PARAMETERS = {
                            // (sub-threshold alone: it tips a near-neutral driver, and never
                            // itself triggers claims — at 0.6 a 2-lane jam chain-reacted)
     coopRange: 120,        // m, a signal binds followers only within this range
+    coop: 'gate',          // gap creation: 'gate' = yield only if it costs < bCoopMax, else
+                           // ignore the claim; 'lmrs' = always yield, clamped at −b (Stage 17)
     signalExpire: 10,      // s, a maneuver that cannot complete is abandoned
     latClearance: 0.4,     // m, lateral clearance kept from a body alongside
     taperLen: 35,          // m over which an ending lane's pavement edge closes

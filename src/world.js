@@ -848,12 +848,14 @@ var World = class World {
         // that gridlocked the loop). A committed changer is at least as visible as
         // the old 2 m/s² signal-reading bound.
         const c = this.laneCenter(o.claimLane);
-        if (this.bandsOverlap([c - o.width / 2, c + o.width / 2], band, 0.35)) {
-          // a committed changer visibly leaving its lane is a body entering mine: I brake
-          // as hard as it takes; a mere signal (or a stalled commit) binds only within
-          // what I'd comfortably do for a stranger
-          const moving = o.changing &&
-            Math.abs(o.y - this.laneCenter(o.startLane)) > 0.1 * PARAMETERS.laneWidth;
+        // a committed changer visibly leaving its lane is a body entering mine: I brake
+        // as hard as it takes; a mere signal (or a stalled commit) binds only within
+        // what I'd comfortably do for a stranger — or, under LMRS gap creation, not here
+        // at all: coopAcc() clamps it separately so it never displaces my real leader
+        const moving = o.changing &&
+          Math.abs(o.y - this.laneCenter(o.startLane)) > 0.1 * PARAMETERS.laneWidth;
+        if ((moving || lc.coop !== 'lmrs') &&
+            this.bandsOverlap([c - o.width / 2, c + o.width / 2], band, 0.35)) {
           const bound = moving ? PARAMETERS.bMax : this.bCoopMax(veh);
           // >= : IDM saturates at exactly -bMax, and the follower that needs all of it
           // is precisely the one that must see the body entering its lane
@@ -866,6 +868,30 @@ var World = class World {
     veh._leadClaim = bestClaim;
     return best;
   }
+  // LMRS gap creation (Schakel et al. 2012, eq. 15 and the text after it): "if an adjacent
+  // leader wishes to change lanes with a desire above the cooperation threshold, a gap will
+  // be created ... the car-following model is again applied with a limited deceleration" —
+  // a CLAMP at −b, not a gate: I always yield a little, never more than comfortably. Our
+  // default gate (yield only if it costs < bCoopMax, else ignore the claim) let every
+  // follower drive past a crawling merger — 5-10 overtakings per merger where NGSIM I-80
+  // shows 0.21 (Stage 17). Returns +Infinity when no claim binds.
+  coopAcc(veh) {
+    const lc = PARAMETERS.lc, band = this.laneBand(veh.lane), n = this.all.length;
+    let acc = Infinity;
+    for (let k = 1; k < n; k++) {
+      const o = this.all[(veh.allIdx + k) % n];
+      const d = this.distAhead(veh.x, o.x);
+      if (d > lc.coopRange) break;
+      if (o.claimLane == null || o.changing || o.done) continue;   // committed changers are bodies (scanAhead)
+      const c = this.laneCenter(o.claimLane);
+      if (!this.bandsOverlap([c - o.width / 2, c + o.width / 2], band, 0.35)) continue;
+      if (this.segs(o).some((s) => this.bandsOverlap(s.band, band, 0.35))) continue;   // already a body in my lane
+      const a = veh.idmAcc(Math.max(d - o.len, 0.1), o.v, this.headwayAt(veh, o.desire));
+      acc = Math.min(acc, Math.max(a, -veh.p.b));
+    }
+    return acc;
+  }
+
   scanBehind(veh, band, maxDist) {
     const n = this.all.length;
     for (let k = 1; k < n; k++) {
@@ -1237,6 +1263,7 @@ var World = class World {
                                     lead ? lead.v : 0);
         let cmd = veh.accCmd(sense.gap, sense.vLead, lead ? lead.acc : 0,
                              leadClaim ? this.headwayAt(veh, lead.desire) : null);
+        if (PARAMETERS.lc.coop === 'lmrs') cmd = Math.min(cmd, this.coopAcc(veh));   // gap creation
 
         // the lane end: a stopped obstacle, but one the driver expects to be gone from
         // (Daamen et al. 2010: acceleration-lane drivers hold speed, most merge in the

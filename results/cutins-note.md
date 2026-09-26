@@ -90,6 +90,45 @@ worked as LMRS intends, mergers would not stall.
 overtake each merger (NGSIM lane 7 vs the model), then audit our synchronization and gap
 creation against LMRS eq. 15 before adopting its acceptance.
 
+## Overtakings per merger: the missing zipper
+
+`tools/ngsim_overtakes.py` and `probes/overtakes.mjs` count the through-lane vehicles that pass
+a merger between the start of the auxiliary lane and its merge.
+
+| congested mergers (merge speed ≤ 12 m/s) | median time beside the mainline | overtaken by 3+ | mean overtakings |
+|---|---|---|---|
+| NGSIM I-80 lane 7 (n = 200) | 12 s | **0%** (82% by none) | 0.21 |
+| model, ideal | 46 s | 53% | 5.0 |
+| model, human | 53 s | 60% | 5.2 |
+| model, human, LMRS acceptance | 73 s | 76% | 9.7 |
+| model, human, LMRS gap creation (`lc.coop: 'lmrs'`) | 41 s | 48% | 3.5 |
+| model, human, LMRS acceptance + gap creation | 56 s | 67% | 6.2 |
+
+Real mainline traffic lets mergers in one by one (Daamen et al. 2010: no merger is overtaken
+by several vehicles). Ours drives past them, so the ramp queue crawls and mergers finally
+enter from near standstill.
+
+Our cooperation differs from LMRS's. Ours gates the claim: a follower yields only if it costs
+less than a politeness-scaled bound, and otherwise ignores the merger. LMRS clamps it: the
+follower always yields, braking no more than b. The clamp is now an option (`coopAcc`,
+`lc.coop: 'lmrs'`). It helps, but only partly.
+
+A sample of the congested ramp queue (minutes 35–65) shows why:
+
+- **Most of the queue never asks.** 76% of the queue sits 60–200 m from the lane end,
+  crawling at 1.3–1.9 m/s. Its route desire is 0.49–0.64 (distance-based, LMRS
+  x0 = 295 m), and only 9–17% of it claims (desire ≥ d_coop).
+- **Only the head gets in.** Within 60 m of the end, 99% claim, at 7.6 m/s.
+- **Real mergers take gaps our car-following cannot.** At I-80's merges the median gap to
+  the new follower is 6.8 m and the 10th percentile 0.8 m, at matched speed. An IDM
+  follower with a 2–3 m standstill distance reads a 1–3 m gap as an emergency, so our
+  acceptance refuses what real drivers take.
+
+**Neither option is adopted.** Both `lc.accept` and `lc.coop` default to the old behaviour.
+The zipper needs either smaller accepted gaps at low speed (relaxing s0 as well as T during a
+merge), or cooperation that starts before d_coop, or both. That is a design choice
+calibrated against the lane-7 statistics above.
+
 ## Caveats
 
 - **Congested data only.** NGSIM I-80 is congested (changers under 12 m/s at the 90th

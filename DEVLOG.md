@@ -3,6 +3,27 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-25 — Stage 17 (3): the missing zipper
+
+**Done:** `tools/ngsim_overtakes.py`: NGSIM I-80 onramp mergers (lane 7 → 6, n=200) are
+overtaken by a mean 0.21 through-lane vehicles (82% by none, none by 3+) over a median 12 s in
+the auxiliary lane. `probes/overtakes.mjs`: ours, in congestion, 5.0-5.2 (53-60% by 3+) over
+46-53 s. The mainline drives past mergers. Cause, found in the code and measured: our gap
+creation GATES a claim (yield only if it costs < b·2·politeness, else ignore), where LMRS
+CLAMPS it (always yield, at most b). The clamp was added as `lc.coop: 'lmrs'` (coopAcc, a
+separate term min'd with the real car-following command so a claim never displaces a body):
+3.5 overtakings, 48% by 3+ — partial. A sample of the congested ramp queue shows why: 76% of
+the queue sits 60-200 m from the lane end at 1.3-1.9 m/s with desire 0.49-0.64, so only 9-17%
+claim. Only the head of the queue (within 60 m of the end, desire 0.80, 99% claiming) gets in.
+Real mergers accept 0.8-7 m gaps at matched speed, which IDM's s0 forbids. Neither option
+adopted.
+**Changed:** src/world.js (coopAcc; scanAhead skips mere claims under lc.coop 'lmrs'),
+src/params.js (lc.coop 'gate'), tools/ngsim_overtakes.py, probes/overtakes.mjs, results/
+(overtakes-*.txt, ngsim-overtakes.json, cutins-note), DEVPLAN.
+**State:** defaults unchanged; smoke PASS.
+**Next:** a design decision with Chris on how to get the zipper: s0 relaxation during merges,
+earlier cooperation, LMRS acceptance with the clamp, calibrated to the NGSIM lane-7 statistics.
+
 ## 2026-09-25 — Stage 17 (2): cut-ins against NGSIM; LMRS acceptance tested
 
 **Done:** `tools/ngsim_cutins.py` (smoothed NGSIM I-80 lane changes; kinematics at the centre

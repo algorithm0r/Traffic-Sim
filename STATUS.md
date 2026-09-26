@@ -6,7 +6,8 @@
 
 ## Stage
 Stage 17 `[ IN PROGRESS ]` (merge and weaving safety). Enhanced IDM rejected (eidm-note);
-cut-ins vs NGSIM located the excess in ramp merges (cutins-note); LMRS acceptance tested
+cut-ins vs NGSIM located the excess in ramp merges; the missing zipper (mergers overtaken
+~5× vs NGSIM 0.21) is the open design question (cutins-note)
 
 ## State
 - Program goals (DEVPLAN, 2026-09-22): (1) cleaner, less rule-based 2D model; (2) traffic
@@ -58,8 +59,8 @@ cut-ins vs NGSIM located the excess in ramp merges (cutins-note); LMRS acceptanc
 - Workstation load: keep batches ≤4 processes (an 18-process batch hard-reset the machine)
 
 ## Next action
-Stage 17: overtakings per merger (NGSIM lane 7 vs model), then synchronization and gap
-creation audited against LMRS eq. 15, then adopt LMRS acceptance if conflicts fall. Blocked item: a manual-driving glance-duration
+Stage 17: the zipper — calibrate the merge process to NGSIM lane 7 (design decision with
+Chris: s0 relaxation during merges, cooperation onset, LMRS acceptance + clamp). Blocked item: a manual-driving glance-duration
 reference for the attention tail.
 
 ## Blockers
