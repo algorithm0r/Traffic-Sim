@@ -3,6 +3,24 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-09-30 — Stage 17 (5): the zipper appears, and costs discharge
+
+**Done:** cooperation from the signalling threshold (d_coop = d_sync = 0.577), general to all
+lane changes, with s0 relaxation and LMRS gap creation. The zipper appears: congested mergers
+overtaken 0.16 (NGSIM 0.21); ramp-merge entries match NGSIM (gap median 6.6 vs 6.8 m, merger
+faster, TTC < 1.5 2.6%). The ring lane changes and the free-flow lane-change rate (0.238 vs
+highD 0.24) and SDLP stay calibrated. But queue discharge collapses at the lane drop (1345 →
+919; drops 24-49% in all four cases). coopAcc now yields to the ADJACENT LEADER only, as LMRS
+specifies (it had yielded to every claimant in range). That did not fix it (941); courtesy off
+did not either (958). Gap creation for the whole claiming queue drags the through lane to the
+ending lane's speed. dCoop 0.68 restores discharge (1297) but loses the zipper (3.0).
+Tradeoff brought to Chris.
+**Changed:** src/world.js (coopAcc: adjacent leader only), probes/lateral.mjs ('sync' variant),
+results/ (overtakes-*-sync/adj/dc68, capdrop-sync-*, capdrop-adj-*, capdrop-dc*, cutins-*-sync,
+cutins-note).
+**State:** defaults unchanged (lc.coop 'gate', dCoop 0.788, s0MinFrac 1); smoke PASS.
+**Next:** decide with Chris which claimants a follower yields to.
+
 ## 2026-09-26 — Stage 17 (4): relaxing s0 for every lane change
 
 **Done:** Chris: "why not let all accept shorter gaps? so it's not merger logic". LMRS relaxation

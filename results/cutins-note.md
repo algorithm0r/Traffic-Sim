@@ -152,6 +152,37 @@ s0MinFrac = 0.47 (the same fraction as T):
 
 Not adopted yet. Defaults are unchanged.
 
+## Cooperation from the signalling threshold: the zipper, and its price
+
+Also general to all lane changes: d_coop is lowered to d_sync, so followers make room for anyone
+signalling. LMRS separates the two thresholds only by calibration. Together with s0 relaxation
+and LMRS gap creation:
+
+- **The zipper appears.** Congested mergers are overtaken 0.16 times on average (86% by none,
+  0.2% by 3+), against NGSIM's 0.21 (82%, 0%). Ideal drivers show the same.
+- **Ordinary changes and lane keeping stay calibrated.** Ramp-merge entries look like
+  NGSIM's: gap median 6.6 m against 6.8, the merger slightly faster (closing median
+  −1.6 m/s), TTC < 1.5 at entry 2.6% (down from 9.9%). On the ring, lane changes at entry keep
+  NGSIM's closing speeds. The free-flow lane-change rate moves from 0.223 to 0.238 per
+  veh·km (highD 0.24), with SDLP and duration unchanged.
+- **Queue discharge collapses.** At the ideal lane drop it falls from 1345 to 919 veh/h/lane
+  (a 49% drop), and every case lands at 24–49%.
+
+Restricting gap creation to the adjacent leader, as LMRS specifies (`coopAcc` now does), does
+not fix it (941). Courtesy is not the cause either (958 with courtesy off). The cause is gap
+creation itself. When the whole ending-lane queue claims, each through-lane car slows behind
+its crawling neighbour and holds open gaps that often go unused.
+
+It is a sharp switch between d_coop 0.577 and 0.68. At 0.68 discharge recovers (1297) but the
+zipper is lost (3.0 overtakings); 0.73 gives 1335.
+
+The 22–25% drop that remains at 0.68–0.73 is the s0 relaxation. It raises the pre-breakdown
+peak (1704–1729 against 1552) while discharge stays near the baseline.
+
+**Open design question:** which claimants a follower should make room for. LMRS yields to any
+adjacent leader above d_coop, whether or not it can use the gap. The real zipper keeps the
+through lane flowing and yields near the merge point.
+
 ## Caveats
 
 - **Congested data only.** NGSIM I-80 is congested (changers under 12 m/s at the 90th

@@ -1,0 +1,4 @@
+merge, ideal drivers, seeds 1,2, {"lc":{"s0MinFrac":0.47,"coop":"lmrs","dCoop":0.577}}
+  all mergers (n=1283, median 8.6 s beside the mainline): overtaken by 0: 82.6%  1: 15.6%  2: 1.6%  3+: 0.2%   mean 0.19
+  merge speed <= 12 m/s (NGSIM-like) (n=718, median 18.2 s beside the mainline): overtaken by 0: 87.2%  1: 10.7%  2: 1.8%  3+: 0.3%   mean 0.15
+  merge speed > 12 m/s (n=565, median 4.3 s beside the mainline): overtaken by 0: 76.8%  1: 21.8%  2: 1.4%  3+: 0.0%   mean 0.25

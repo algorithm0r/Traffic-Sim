@@ -21,6 +21,8 @@ function apply(name) {
       const d = +part.slice(4);
       for (const a of Object.values(ctx.ARCHETYPES)) a.laneTol = [a.laneTol[0] + d, a.laneTol[1]];
     } else if (part.startsWith('lat')) P.steering.maxLatSpeed = +part.slice(3);
+    // Stage 17 candidate: s0 relaxed like T, LMRS gap creation, cooperation from d_sync
+    else if (part === 'sync') Object.assign(P.lc, { s0MinFrac: 0.47, coop: 'lmrs', dCoop: P.lc.dSync });
   }
 }
 

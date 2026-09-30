@@ -875,16 +875,23 @@ var World = class World {
   // default gate (yield only if it costs < bCoopMax, else ignore the claim) let every
   // follower drive past a crawling merger — 5-10 overtakings per merger where NGSIM I-80
   // shows 0.21 (Stage 17). Returns +Infinity when no claim binds.
+  // Only the ADJACENT LEADER counts — the first vehicle ahead in each neighbouring lane
+  // ("if an adjacent leader wishes to change lanes ..."): yielding to every claimant within
+  // range had each through car braking for a whole row of signalling cars at a lane drop,
+  // and the queue discharge collapsed (1345 → 919 veh/h/lane, a 49% drop).
   coopAcc(veh) {
     const lc = PARAMETERS.lc, band = this.laneBand(veh.lane), n = this.all.length;
     let acc = Infinity;
-    for (let k = 1; k < n; k++) {
+    const done = new Set();   // sides whose adjacent leader has been found
+    for (let k = 1; k < n && done.size < 2; k++) {
       const o = this.all[(veh.allIdx + k) % n];
       const d = this.distAhead(veh.x, o.x);
       if (d > lc.coopRange) break;
-      if (o.claimLane == null || o.changing || o.done) continue;   // committed changers are bodies (scanAhead)
-      const c = this.laneCenter(o.claimLane);
-      if (!this.bandsOverlap([c - o.width / 2, c + o.width / 2], band, 0.35)) continue;
+      if (o.done) continue;
+      const side = Math.sign(this.laneOf(o) - veh.lane);
+      if (!side || Math.abs(this.laneOf(o) - veh.lane) !== 1 || done.has(side)) continue;
+      done.add(side);                                   // o is my adjacent leader on this side
+      if (o.claimLane !== veh.lane || o.changing) continue;   // committed changers are bodies (scanAhead)
       if (this.segs(o).some((s) => this.bandsOverlap(s.band, band, 0.35))) continue;   // already a body in my lane
       const a = veh.idmAcc(Math.max(d - o.len, 0.1), o.v, this.headwayAt(veh, o.desire));
       acc = Math.min(acc, Math.max(a, -veh.p.b));
