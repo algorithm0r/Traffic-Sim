@@ -3,6 +3,19 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-11-13 — Stage 18 published to Pages
+
+**Done:** aa109cb (Stage 18) reached origin/main at 11:49 (pushed outside this session after Chris
+approved publishing; this session's own push was refused by its permission check). Checked the
+live site: https://algorithm0r.github.io/Traffic-Sim/ serves the new index, `vendor/claude-basic.js`
+(0.6.0 header) and `src/scenarios.js`; loaded in the browser pane, it opens on the rush preset and
+runs (360 cars, series sampling, no console errors).
+**Changed:** STATUS published/branches/next-action lines and the PA hub Current State no longer say
+the commit is local.
+**State:** docs only; no code change since aa109cb (smoke/validation as in the entry below).
+**Next:** Chris reads the live page before showing it to the TCSS 600 students; then Stage 17's
+zipper decision.
+
 ## 2026-11-13 — Stage 18: the live view on Claude Basic, scenario presets, readable cars
 
 **Done:** For showing the sim to incoming grad students. Looked at the old view first: controls in a

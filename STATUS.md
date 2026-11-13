@@ -25,7 +25,7 @@ the zipper costs queue discharge; the tradeoff is with Chris (DEVLOG 2026-09-30)
   identical to b11e421 outside the renderer check T4 (model untouched). SWEEP last PASS
   2026-09-25 (not rerun). Runner → Server → Mongo round trip VERIFIED 2026-09-23 (scratch, dropped)
 - Published: github.com/algorithm0r/Traffic-Sim; Pages at https://algorithm0r.github.io/Traffic-Sim/
-  (Pages still serves the pre-Stage-18 view: the Stage 18 commit is local, not pushed)
+  (serves the Stage 18 view: aa109cb pushed 2026-11-13; live page loaded and run, no console errors)
 - DB path VERIFIED (socket transport through the research Server on mint)
 - Browser: Chris eyeballed the safety views, rotated bodies and merging 2026-09-23 —
   "looking great", and the phase figure 2026-09-24 ("really cool"). He has NOT yet seen the
@@ -53,7 +53,7 @@ the zipper costs queue discharge; the tradeoff is with Chris (DEVLOG 2026-09-30)
   (29 → 62), phase boundary moves out (over-stabilised)
 
 ## Branches / tags
-- `main` tracks origin/main (at b11e421 as last fetched); the Stage 18 commit is local only; tags
+- `main` = origin/main at aa109cb (pushed 2026-11-13; `git ls-remote` checked); tags
   v0.1-v0.4.1, v0.5-v0.8, **v0.9** (2026-09-25: Stage 16, SUMO comparison)
 
 ## Open
@@ -67,8 +67,8 @@ the zipper costs queue discharge; the tradeoff is with Chris (DEVLOG 2026-09-30)
   (Stage 17's problem, visible to any viewer; Backlog)
 
 ## Next action
-Chris looks at the Stage 18 view (http://localhost:8000/research/Traffic%20Sim/sim/) and decides
-whether to push it to Pages before showing the students. Research: Stage 17's zipper decision
+Chris looks at the live Stage 18 view (https://algorithm0r.github.io/Traffic-Sim/) before showing
+it to the students. Research: Stage 17's zipper decision
 with Chris (which claimants a follower yields to). Blocked item: a manual-driving
 glance-duration reference for the attention tail.
 
