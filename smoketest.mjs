@@ -357,15 +357,18 @@ function run(overrides, ticks, human) {
   let threw = null;
   try {
     observer.draw(stub);
-    const speed = new ctx.LineGraph(0, 0, 100, 50, 'x');
-    speed.push(1); speed.push(2); speed.draw(stub);
-    const fd = new ctx.ScatterGraph(0, 0, 100, 50, 'x', 0, 80, 0, 2600);
-    fd.push(10, 1000); fd.draw(stub);
-    const dm = new ctx.DataManager(world, null, {});
-    dm.vehKm = 12.3;
-    new ctx.SafetyPanel(0, 0, 400, 150, dm).draw(stub);
+    // the live view's series (browser charts read these arrays) and the scatter painter
+    const dm = new ctx.DataManager(world, null);
+    for (let t = 1; t <= 400; t++) { engine.tick = t; dm.update(engine); }
+    const fd = new ctx.ScatterGraph(0, 80, 0, 2600, 'x', 'y');
+    fd.draw(stub, 300, 150, dm.series.fdDensity, dm.series.fdFlow,
+            { axis: 'gray', grid: 'gray', point: 'blue', font: '10px sans-serif' });
+    var series = dm.series;
   } catch (e) { threw = e; }
   check('draw() completes', threw === null, threw ? threw.message : undefined);
+  check('live series sampled', series && series.speed.length === 4 && series.speedHist[0].length > 0 &&
+        series.speedHist[0].reduce((a, b) => a + b, 0) === world.vehicles.length,
+        series ? `speed=${series.speed.length} hist=${series.speedHist[0] && series.speedHist[0].reduce((a, b) => a + b, 0)} vehicles=${world.vehicles.length}` : 'no series');
   check('vehicles drawn', rects > world.vehicles.length,
         `fillRects=${rects} vehicles=${world.vehicles.length} (calls=${calls})`);
 

@@ -6,7 +6,11 @@ A browser-based agent-based simulation (vanilla JS + Canvas, no build step), sca
 the shared engine v2.
 
 ## Run
-- **Browser:** open `index.html`.
+- **Browser:** open `index.html`, or http://localhost:8000/research/Traffic%20Sim/sim/ on the
+  always-on Static Server. It opens on a rush-hour interchange loop; the Scenario menu has
+  light traffic (the model defaults), a phantom jam, a ramp merge, a lane drop and the
+  Stage 17 zipper test (`src/scenarios.js`). The live view is Claude Basic 0.6.0, vendored in
+  `vendor/` (never live-linked; re-vendor from the kit's `dist/`).
 - **Headless batch:** `npm install` once, then `node runner.mjs --reps 50 [--params '{"laneCount":2}']
   [--tag "why"] [--scratch]` — runs the same sim files in the main realm (`headless.mjs`) and
   writes self-describing packets to MongoDB through the research Server (`--transport direct`
@@ -45,7 +49,9 @@ the shared engine v2.
 
 ## Layout
 - `src/` — sim core (`engine`, `params`, `world`, `agent`, `observer`, `datamanager`, `charts`,
-  `util`) + `db.js` (vendored standard DB client) + `ui.js`/`main.js` (browser-only, all DOM).
+  `util`) + `db.js` (vendored standard DB client) + `scenarios.js` (browser presets, no DOM)
+  + `ui.js`/`main.js` (browser-only, all DOM).
+- `vendor/` — Claude Basic `dist/` (pinned copy; the version is in each file's header line).
 - `runner.mjs` / `smoketest.mjs` — headless entry points.
 - `DEVPLAN.md` / `DEVLOG.md` — the plan (forward) and the log (backward, append-only).
 

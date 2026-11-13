@@ -229,14 +229,16 @@ var ARCHETYPES = {
 var IDEAL_CONTROL = { tReact: [0.05, 0], percErr: [0, 0], motorErr: [0, 0], laneTol: [1.5, 0],
                       loomGain: 1e6, glanceRate: 0, glanceMean: 0.5, checkProb: 1 };
 
-// Schema drives the auto-generated control panel (ui.js). One entry per live-tunable.
+// Schema drives the auto-generated control strip (ui.js). One entry per live-tunable.
+// openOnly: shown only on the open road (a scenario setting, see scenarios.js).
 var PARAM_SCHEMA = [
   { key: 'laneCount', label: 'Lanes', min: 2, max: 4, step: 1, resets: true },
-  { key: 'initialDensity', label: 'Init density (veh/km/ln)', min: 2, max: 45, step: 1, resets: true },
-  { key: 'demand', label: 'Ramp demand (veh/h)', min: 0, max: 2000, step: 50 },
+  { key: 'initialDensity', label: 'Starting density (veh/km/lane)', min: 2, max: 45, step: 1, resets: true },
+  { key: 'upstreamDemand', label: 'Arrivals at IN (veh/h)', min: 1000, max: 6000, step: 100, openOnly: true },
+  { key: 'demand', label: 'Onramp demand (veh/h each)', min: 0, max: 2000, step: 50 },
   { key: 'speedLimitMph', label: 'Speed limit (mph)', min: 45, max: 80, step: 5 },
   { key: 'truckFraction', label: 'Truck share', min: 0, max: 0.3, step: 0.05 },
   { key: 'tReactX', label: 'Reaction time ×', min: 0.5, max: 2.5, step: 0.1, resets: true },
-  { key: 'glanceX', label: 'Glance rate ×', min: 0, max: 5, step: 0.5, resets: true },
-  { key: 'updatesPerDraw', label: 'Speed (updates/frame)', min: 1, max: 60, step: 1 },
+  { key: 'glanceX', label: 'Glances away ×', min: 0, max: 5, step: 0.5, resets: true },
+  { key: 'updatesPerDraw', label: 'Sim speed (steps per frame)', min: 1, max: 60, step: 1 },
 ];

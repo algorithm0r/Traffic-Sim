@@ -71,9 +71,9 @@ check and the claims, and replace them with a single perception-and-attention la
 - Kinematic bicycle body (v0.2) and the human control loop (v0.3): see Stages 7 and 9.
 
 ## Not yet built
-- DB round-trip from this box (runner written; Server/Mongo not exercised).
-- Browser check of the new merging and rotated bodies (Pages: algorithm0r.github.io/Traffic-Sim).
-- Everything under Stages 11-13.
+- (2026-11-13) The three items once listed here are done: the DB round trip (VERIFIED
+  2026-09-23), the browser check of merging and rotated bodies (Chris, 2026-09-23), and
+  Stages 11-13. Open work lives in the stages below.
 
 ## Stages
 ### Stage 1 — IDM car-following on the ring  [ DONE ]
@@ -406,3 +406,42 @@ bMax on a close cut-in, not the reflex. Stricter gap acceptance does not reduce 
 - [ ] Crash typing closer to police coding (struck-merger rear strikes vs true sideswipes)
 **Done when:** lane-change involvement at interchanges falls toward Golob's regime shares
 without losing the capacity-drop and phase results.
+
+### Stage 18 — Presentation: a live view a first-time viewer can read  [ DONE 2026-11-13 ]
+For showing the sim to incoming grad students (a possible TCSS 600 project). View only: no
+model default changed (smoke output identical to b11e421 outside the renderer check).
+- [x] Claude Basic 0.6.0 vendored in `vendor/` (the kit's `dist/`, never live-linked); the
+      page uses `.cb-sim` (world, then clock and legend, then controls under the world;
+      charts beside or below), `cb-` classes and tokens, no raw hex in the page
+- [x] The road's colours resolved from the kit's tokens (`CB.sim.palette`), repainted on a theme
+      change; speed and time-to-collision ramps run bad → warn → ok
+- [x] Cars read as cars: the loop folds into ~750-m rows (`legs` per scenario), so a car is
+      ~7 px long (it was 3.5 px long and 6 px tall: a tick)
+- [x] Scenario presets (`src/scenarios.js`): rush-hour interchanges (the default on open),
+      light traffic (the model defaults), phantom jam, ramp merge, lane drop, and the Stage 17
+      zipper test variant, labelled as not the default model
+- [x] Labelled controls (scenario, car body 2D/1D, colour mode, ideal drivers, PARAM_SCHEMA
+      sliders) and a "What am I looking at" card with a per-scenario line and warnings
+      (lane drop or safety colours with the 1D body)
+- [x] Charts as `<cb-sim-*>`: mean speed, a speed-distribution heatmap, detector flow (1-min
+      mean), cars waiting, near-crashes per minute, hard-braking near-crashes per 1000 veh·km
+      against SHRP2, crashes by type. The status line and the in-canvas text panel are gone
+      (reports are lines)
+- [x] The fundamental diagram measured by Edie's definitions in every 500-m cell each period
+      (it plotted the road's mean density, which on a closed ring is fixed by the vehicle
+      count, so the scatter was a vertical line)
+**Done when:** the page opens on a scenario where something happens within a minute, every
+control is labelled, and the page says in plain words what the picture shows. Checked in the
+browser pane 2026-11-13 (dark and paper themes, wide and stacked layouts).
+
+## Backlog
+- [ ] fix: the browser view still flushes a packet to the research DB at `epoch` (30 sim-minutes),
+      so a demo left running writes a run into `trafficSim`. Decide whether the browser should
+      write at all, or only with a switch on
+- [ ] idea: the phantom-jam ring (k 26, tReact ×1.6) jams within 30 s with the 2D body but
+      stayed at 36 mph for 6 min with the 1D body (one seed, headless probe 2026-11-13). Worth a
+      look as an embodiment result before it is shown as one
+- [ ] feat: a side-by-side view, both bodies on the same seed (Flea Jumping's two-world
+      layout), for the embodiment comparison
+- [ ] idea: the hard-braking near-crash chart puts the model ~10³× or more above SHRP2 in congested
+      scenarios (Stage 17's open problem, shown loudly); say so on the page before students read it

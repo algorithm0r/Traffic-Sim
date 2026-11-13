@@ -3,6 +3,41 @@ Newest entry on top. **Append only — never edit past entries.**
 
 <!-- append new entries above this line -->
 
+## 2026-11-13 — Stage 18: the live view on Claude Basic, scenario presets, readable cars
+
+**Done:** For showing the sim to incoming grad students. Looked at the old view first: controls in a
+left column, charts and a text safety panel drawn inside the world canvas, a status line of
+numbers, and cars 3.5 px long by 6 px tall (they read as ticks). Vendored Claude Basic 0.6.0
+(`vendor/`, byte-identical to the kit's `dist/` and to Flea Jumping's copy) and rebuilt the page
+on `.cb-sim`: world, then a clock dial (sim minutes) and a legend that follows the colour mode,
+then `CB.sim.controls` under the world. Charts are `<cb-sim-*>`: mean speed, speed-distribution
+heatmap, detector flow (1-min mean), cars waiting, near-crashes/min, hard-braking near-crashes per
+1000 veh·km vs SHRP2, crashes by type. The road's colours are resolved from tokens and repaint on a
+theme change. Scenario presets (`src/scenarios.js`, browser-only): rush-hour interchanges (default
+on open: k 20, ramp demand 1400), light traffic (model defaults), phantom jam (ring, k 26, tReact
+×1.6), ramp merge and lane drop (capdrop geometries, demand raised), and the Stage 17 zipper
+variant labelled "not the default model". The loop now folds into ~750-m rows, so a car is ~7 px
+long. A "What am I looking at" card with a per-scenario line and warnings (lane drop or safety
+colours with the 1D body). Found in passing: the old flow–density scatter plotted the road's mean
+density, which on a closed ring is fixed by the vehicle count (a vertical line); it now uses
+Edie's flow and density per 500-m cell per period, and shows both branches (phantom: cells above
+45 veh/km/lane average 784 veh/h/lane).
+**Changed:** index.html, src/ui.js, src/main.js (rewritten); src/observer.js (palette in, no hex;
+`height()`); src/charts.js (LineGraph and SafetyPanel removed, ScatterGraph now a painter);
+src/datamanager.js (chart series arrays; packet samples unchanged); src/scenarios.js (new);
+src/params.js (PARAM_SCHEMA labels, `upstreamDemand` slider; no defaults moved); smoketest.mjs T4
+(new chart classes; checks the series); vendor/ (new); README; DEVPLAN (Stage 18, stale
+"Not yet built" list, Backlog). A kit gap (no scatter element) is written up for the kit's repo in
+the side-session notes folder; the vendored copy is unpatched.
+**State:** model unchanged: smoke output identical to HEAD b11e421 line for line outside T4
+(diffed); smoke PASS (incl. new "live series sampled"), VALIDATION PASS @ v0.9-5-gb11e421-dirty
+(pre-commit). Checked in the browser pane (localhost:8000 static server): rush, phantom, drop in
+the dark and paper themes, wide and stacked layouts; every scenario × body draws without errors.
+The final FD change was checked numerically, as the pane was hidden by then. Not pushed (pushing
+main redeploys Pages).
+**Next:** Chris looks at it before the students do; Stage 17's design decision is unchanged.
+
+
 ## 2026-09-30 — Stage 17 (5): the zipper appears, and costs discharge
 
 **Done:** cooperation from the signalling threshold (d_coop = d_sync = 0.577), general to all

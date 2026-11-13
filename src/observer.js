@@ -4,22 +4,39 @@
 // every leg, falls off the right edge onto the next leg down, and the bottom leg wraps
 // back to the top (chevrons mark the linkage). Ramps hang below their leg (the road's
 // right side, since we drive left→right).
+//
+// Colours come in from ui.js, resolved from the Claude Basic tokens (a canvas can't read
+// var()), so a theme change repaints the road. Headless callers (the smoke test) pass
+// nothing and get the plain fallback below; no DOM is touched either way.
+var OBSERVER_FALLBACK = {
+  road: 'dimgray', edge: 'gray', dash: 'gray', ramp: 'gray', label: 'silver', queue: 'goldenrod',
+  signal: 'gold', eyes: 'white', crashed: 'magenta', calm: 'gray', font: 'sans-serif',
+  speed: ['red', 'orange', 'green'], ttc: ['red', 'orange', 'green'],
+  type: { aggressive: 'red', normal: 'skyblue', cautious: 'plum', truck: 'goldenrod' },
+};
+
 var Observer = class Observer {
-  constructor(world) { this.world = world; }
+  constructor(world, colors) { this.world = world; this.c = colors || OBSERVER_FALLBACK; }
 
   update() {}
 
   // layout derived fresh each frame so live laneCount/legs changes just work
   layout(ctx) {
     const P = PARAMETERS, w = this.world;
-    const margin = 34, laneH = 10, rampH = 14, top = 16;
+    const margin = 34, laneH = 10, rampH = 14, top = 18;
     const legLen = w.L / P.legs;
+    const bandH = w.laneCount * laneH;
     return {
-      margin, laneH, rampH, top, legLen,
+      margin, laneH, rampH, top, legLen, bandH,
       pxm: (ctx.canvas.width - 2 * margin) / legLen,
-      bandH: w.laneCount * laneH,
-      legPitch: w.laneCount * laneH + rampH + 22,
+      legPitch: bandH + rampH + 20,
     };
+  }
+
+  /** canvas height the current road needs (ui.js sizes the canvas with it) */
+  height() {
+    const g = this.layout({ canvas: { width: 1000 } });
+    return Math.ceil(g.top + PARAMETERS.legs * g.legPitch);
   }
 
   posToXY(g, x) {
@@ -27,19 +44,23 @@ var Observer = class Observer {
     return { leg, px: g.margin + (x - leg * g.legLen) * g.pxm, y: g.top + leg * g.legPitch };
   }
 
+  // a colour from an evenly spaced ramp (low → high), f in [0, 1]
+  ramp(stops, f) { return stops[Math.round(clamp(f, 0, 1) * (stops.length - 1))]; }
+
   draw(ctx) {
-    const P = PARAMETERS, w = this.world, g = this.layout(ctx);
+    const P = PARAMETERS, w = this.world, g = this.layout(ctx), c = this.c;
     const W = ctx.canvas.width;
+    const label = (px) => px + 'px ' + c.font;
 
     // --- roadway -------------------------------------------------------------------
     for (let leg = 0; leg < P.legs; leg++) {
       const y = g.top + leg * g.legPitch;
-      ctx.fillStyle = '#1b212a';
+      ctx.fillStyle = c.road;
       ctx.fillRect(g.margin, y, W - 2 * g.margin, g.bandH);
-      ctx.strokeStyle = '#5a6272';
+      ctx.strokeStyle = c.edge;
       ctx.lineWidth = 1;
       ctx.strokeRect(g.margin + 0.5, y + 0.5, W - 2 * g.margin - 1, g.bandH - 1);
-      ctx.strokeStyle = '#39414f';
+      ctx.strokeStyle = c.dash;
       ctx.setLineDash([6, 8]);
       for (let l = 1; l < w.laneCount; l++) {
         ctx.beginPath();
@@ -49,30 +70,35 @@ var Observer = class Observer {
       }
       ctx.setLineDash([]);
       // leg linkage chevrons: off the right edge, onto the next left edge
-      ctx.fillStyle = '#4a5262';
-      ctx.font = '10px sans-serif';
+      ctx.fillStyle = c.label;
+      ctx.font = label(10);
       ctx.fillText('▸', W - g.margin + 6, y + g.bandH / 2 + 3);
       ctx.fillText('▸', g.margin - 14, y + g.bandH / 2 + 3);
     }
-    ctx.fillStyle = '#4a5262';
+    ctx.fillStyle = c.label;
+    ctx.font = label(10);
     if (!w.open) {
-      ctx.fillText('↻ loop', W - g.margin - 30, g.top + (P.legs - 1) * g.legPitch + g.bandH + 12);
+      ctx.fillText('↻ back to the top', W - g.margin - 92, g.top + (P.legs - 1) * g.legPitch + g.bandH + 13);
     } else {
       // open road: the void past the road's end, and the two boundaries labelled
-      ctx.fillStyle = '#0b0e13';
       for (let s = w.xOut; s < w.L; s += 40) {
         const p = this.posToXY(g, s);
-        ctx.fillRect(p.px, p.y, Math.min(40, w.L - s) * g.pxm + 1, g.bandH);
+        ctx.clearRect(p.px, p.y, Math.min(40, w.L - s) * g.pxm + 1, g.bandH);
       }
       const pin = this.posToXY(g, 0), pout = this.posToXY(g, w.xOut);
-      ctx.fillStyle = '#8a8f98'; ctx.font = '9px sans-serif';
-      ctx.fillText('IN ' + (w.upstream.queue ? '(queue ' + w.upstream.queue + ')' : ''), pin.px, pin.y - 3);
-      ctx.fillText('OUT', pout.px - 20, pout.y - 3);
+      ctx.fillStyle = c.label;
+      ctx.fillText('IN', pin.px, pin.y - 4);
+      if (w.upstream.queue) {
+        ctx.fillStyle = c.queue;
+        ctx.fillText('waiting to enter ' + w.upstream.queue, pin.px + 18, pin.y - 4);
+      }
+      ctx.fillStyle = c.label;
+      ctx.fillText('OUT', pout.px - 22, pout.y - 4);
     }
 
     // --- ramps (drawn in ~40 m steps so a ramp crossing a leg boundary splits itself) --
     for (const ramp of w.onramps) {
-      ctx.fillStyle = ramp.drop ? '#1b212a' : '#242c37';
+      ctx.fillStyle = ramp.drop ? c.road : c.ramp;
       for (let s = 0; s < ramp.len; s += 40) {
         const p = this.posToXY(g, (ramp.x + s) % w.L);
         const frac = s / ramp.len;
@@ -81,33 +107,33 @@ var Observer = class Observer {
                             : g.rampH * (1 - 0.55 * frac);
         ctx.fillRect(p.px, p.y + g.bandH, Math.min(40, ramp.len - s) * g.pxm + 1, h);
       }
-      if (ramp.drop) continue;
-      const p0 = this.posToXY(g, ramp.x);
-      ctx.fillStyle = '#8a8f98';
-      ctx.font = '9px sans-serif';
+      const p0 = this.posToXY(g, ramp.drop ? ramp.len - 120 : ramp.x);
+      ctx.fillStyle = c.label;
+      ctx.font = label(10);
+      if (ramp.drop) { ctx.fillText('LANE ENDS', p0.px, p0.y + g.bandH + g.laneH + 11); continue; }
       ctx.fillText('ON ' + (ramp.idx + 1), p0.px, p0.y + g.bandH + g.rampH + 9);
       if (ramp.queue > 0) {
-        ctx.fillStyle = '#e3b341';
-        ctx.fillText('queue ' + ramp.queue, p0.px + 34, p0.y + g.bandH + g.rampH + 9);
+        ctx.fillStyle = c.queue;
+        ctx.fillText('waiting ' + ramp.queue, p0.px + 34, p0.y + g.bandH + g.rampH + 9);
       }
     }
     for (const exit of w.exits) {
       if (exit.decel) {
-        ctx.fillStyle = '#1b212a';
+        ctx.fillStyle = c.road;
         for (let s = 0; s < exit.decel.len; s += 20) {
           const p = this.posToXY(g, (exit.decel.start + s) % w.L);
           const h = g.laneH * Math.min(1, s / P.lc.taperLen);
           ctx.fillRect(p.px, p.y + g.bandH, Math.min(20, exit.decel.len - s) * g.pxm + 1, h);
         }
       }
-      ctx.fillStyle = '#242c37';
+      ctx.fillStyle = c.ramp;
       for (let s = 0; s < 120; s += 40) {
         const p = this.posToXY(g, (exit.x + s) % w.L);
         ctx.fillRect(p.px, p.y + g.bandH, 40 * g.pxm + 1, g.rampH * (0.45 + 0.55 * s / 120));
       }
       const p0 = this.posToXY(g, exit.x);
-      ctx.fillStyle = '#8a8f98';
-      ctx.font = '9px sans-serif';
+      ctx.fillStyle = c.label;
+      ctx.font = label(10);
       ctx.fillText('EXIT ' + (exit.idx + 1), p0.px, p0.y + g.bandH + g.rampH + 9);
     }
 
@@ -122,14 +148,13 @@ var Observer = class Observer {
       const p = this.posToXY(g, veh.x);
       const y = p.y + (bicycle ? veh.y * latScale : (veh.visLane + 0.5) * g.laneH);
       const len = Math.max(2.5, veh.len * g.pxm);
-      const h = veh.p.truck ? 7 : 6;
+      const h = veh.p.truck ? 6 : 5;
       const ttc = veh.ttc == null ? Infinity : veh.ttc;
-      ctx.fillStyle = veh.crashed ? '#ff2d6f'
-        : P.colorMode === 'type'
-        ? ({ aggressive: '#ff7b72', normal: '#7fd1ff', cautious: '#d2a8ff', truck: '#e3b341' })[veh.p.name]
+      ctx.fillStyle = veh.crashed ? c.crashed
+        : P.colorMode === 'type' ? c.type[veh.p.name]
         : P.colorMode === 'safety'
-        ? (ttc > 6 ? '#3d4a58' : hsl(120 * clamp((ttc - 1) / 5, 0, 1), 85, 55))   // grey = no conflict; red → green by TTC
-        : hsl(130 * clamp(veh.v / vmax, 0, 1), 75, 55);
+        ? (ttc > 6 ? c.calm : this.ramp(c.ttc, (ttc - 1) / 5))   // calm = no conflict; red → green by TTC
+        : this.ramp(c.speed, veh.v / vmax);
       if (bicycle) {
         const ang = Math.atan2(Math.sin(veh.psi) * latScale, Math.cos(veh.psi) * g.pxm * 8);
         ctx.save();
@@ -138,11 +163,11 @@ var Observer = class Observer {
         ctx.fillRect(-len, -h / 2, len, h);
         if (veh.signal != null) {                 // turn signal toward the indicated lane
           const side = w.laneCenter(veh.signal) < veh.y ? -1 : 1;
-          ctx.fillStyle = '#ffd23f';
+          ctx.fillStyle = c.signal;
           ctx.fillRect(-2, side * (h / 2) - 1, 2, 2);
         }
         if (P.colorMode === 'safety' && w.time < veh.glanceUntil) {   // eyes off the road
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = c.eyes;
           ctx.fillRect(-len / 2 - 1, -1, 2, 2);
         }
         ctx.restore();

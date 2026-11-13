@@ -1,46 +1,90 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Traffic Sim</title>
-  <style>
-    body { margin: 0; background: #11151c; color: #cdd2da; font-family: system-ui, sans-serif; display: flex; }
-    #controlPanel { width: 250px; padding: 14px; box-sizing: border-box; }
-    #controlPanel h3 { margin: 0 0 10px; }
-    .ctl { display: block; margin: 10px 0; font-size: 13px; }
-    .ctl input { width: 100%; }
-    button { background: #2b6cf6; color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; margin-right: 6px; }
-    #status { font-size: 12px; color: #8a8f98; margin-top: 12px; }
-    canvas { background: #0b0e13; display: block; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Traffic Sim</title>
+<!-- Claude Basic, vendored and pinned (0.6.0; see DEVLOG) -->
+<link rel="stylesheet" href="vendor/claude-basic.css">
+<script src="vendor/claude-basic.js"></script>
+<style>
+  .top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px var(--cb-gap) 0; }
+  .top .spacer { flex: 1; }
+  .top h1 { margin: 0; font-size: 20px; }
+  .top .note { color: var(--cb-muted); font-size: 12px; }
+  #gameWorld { width: 100%; height: auto; }
+  .about p, .about li { font-size: 12.5px; line-height: 1.5; color: var(--cb-text-2); }
+  .about ul { margin: 6px 0 0; padding-left: 18px; }
+  .about li { margin: 3px 0; }
+  .about #blurb { color: var(--cb-text); margin: 4px 0 0; }
+  .about #scnote { margin: 8px 0 0; }
+  .fd canvas { display: block; width: 100%; height: 150px; }
+</style>
 </head>
 <body>
-  <div id="controlPanel">
-    <h3>Traffic Sim</h3>
-    <button onclick="reset()">Reset</button>
-    <button id="colorBtn" onclick="toggleColor()">Color: speed</button>
-    <button id="bodyBtn" onclick="toggleBody()">Body: bicycle</button>
-    <button id="driversBtn" onclick="toggleDrivers()">Drivers: human</button>
-    <p style="font-size:11px;color:#8a8f98;margin:10px 0 0">Safety view: colour by time-to-collision
-    (grey = none, red &lt; 1.5 s), white dot = eyes off the road, magenta = crashed. Safety
-    metrics need the bicycle body.</p>
-    <div id="status"></div>
-  </div>
-  <canvas id="gameWorld" width="1150" height="760"></canvas>
+<div class="top">
+  <h1 class="cb-title">Traffic Sim<span class="cb-dot">.</span></h1>
+  <span class="note">an agent-based freeway: every car is a driver with its own speed, gaps, reaction time and attention</span>
+  <span class="spacer"></span>
+  <span id="picker"></span>
+</div>
 
-  <!-- socket.io client (for the standard DB client in socket mode) -->
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <!-- sim core, in dependency order; main.js last -->
-  <script src="src/util.js"></script>
-  <script src="src/params.js"></script>
-  <script src="src/db.js"></script>
-  <script src="src/engine.js"></script>
-  <script src="src/agent.js"></script>
-  <script src="src/world.js"></script>
-  <script src="src/observer.js"></script>
-  <script src="src/charts.js"></script>
-  <script src="src/datamanager.js"></script>
-  <script src="src/ui.js"></script>
-  <script src="src/main.js"></script>
+<div class="cb-sim">
+  <div class="cb-sim-stage">
+    <div class="cb-sim-world" id="world"><canvas id="gameWorld" width="1150" height="520"></canvas></div>
+    <div class="cb-sim-bar">
+      <cb-sim-clock id="clock" period="60" count size="84" cycle-label="hour" unit-label="minute"></cb-sim-clock>
+      <cb-sim-legend id="legend"></cb-sim-legend>
+    </div>
+    <div id="controls"></div>
+  </div>
+
+  <div class="cb-sim-charts">
+    <div class="cb-card about wide">
+      <div class="cb-label">What am I looking at</div>
+      <p id="blurb"></p>
+      <ul>
+        <li>One freeway, folded into rows like lines of text. Traffic drives left to right, leaves
+          the end of a row and carries on at the start of the next; on the loop the last row feeds the first.</li>
+        <li>Ramps hang below the road on the right: drivers work across to their EXIT, and new
+          drivers merge in from each ON ramp.</li>
+        <li>Each driver follows the car ahead (IDM) and changes lanes when it pays (MOBIL, LMRS),
+          with reaction times, misjudged gaps and glances away. Four driver types, fitted to
+          real trajectories (NGSIM I-80).</li>
+        <li>Car body: the same drivers in two bodies. 2D cars steer across the lane line; 1D
+          cars jump between lane slots. Crashes are never scripted: in the 2D body they emerge from
+          late reactions, misjudged gaps and glances away.</li>
+      </ul>
+      <p id="scnote" class="cb-banner warn" hidden></p>
+    </div>
+    <cb-sim-series id="cSpeed" label="Mean speed (mph)" window="360" x-label="minutes"></cb-sim-series>
+    <cb-sim-histmap id="cHist" label="Speeds of all cars (mph)" window="360" lo="0" hi="90" x-label="minutes"></cb-sim-histmap>
+    <cb-sim-series id="cFlow" label="Flow past the detector (veh/h/lane, 1-min average)" window="360" x-label="minutes"></cb-sim-series>
+    <div class="cb-card fd">
+      <div class="cb-sim-head"><span class="cb-sim-title">Flow vs density, every 500 m of road (the fundamental diagram)</span></div>
+      <canvas id="cFD"></canvas>
+    </div>
+    <cb-sim-series id="cQueue" label="Cars waiting to enter" window="360" x-label="minutes"></cb-sim-series>
+    <cb-sim-series id="cNear" label="Near-crashes per minute (time to collision < 1.5 s)" window="360" x-label="minutes"></cb-sim-series>
+    <cb-sim-series id="cRate" label="Hard-braking near-crashes per 1000 veh·km" window="360" x-label="minutes"></cb-sim-series>
+    <cb-sim-series id="cCrash" label="Crashes so far" window="360" x-label="minutes"></cb-sim-series>
+  </div>
+</div>
+
+<!-- socket.io client (for the standard DB client in socket mode) -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<!-- sim core, in dependency order; main.js last -->
+<script src="src/util.js"></script>
+<script src="src/params.js"></script>
+<script src="src/db.js"></script>
+<script src="src/engine.js"></script>
+<script src="src/agent.js"></script>
+<script src="src/world.js"></script>
+<script src="src/observer.js"></script>
+<script src="src/charts.js"></script>
+<script src="src/datamanager.js"></script>
+<script src="src/scenarios.js"></script>
+<script src="src/ui.js"></script>
+<script src="src/main.js"></script>
 </body>
 </html>

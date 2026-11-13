@@ -1,13 +1,13 @@
 # Traffic Sim — STATUS
 *One screen. The current pulse. Overwritten, never appended — for history read DEVLOG.*
 
-**Updated:** 2026-09-25 (Stage 17 in progress) — refreshed every session close; may carry unverified claims
+**Updated:** 2026-11-13 (Stage 18 presentation done; Stage 17 in progress) — refreshed every session close; may carry unverified claims
 **Verified:** 2026-07-10 (scaffold) — last cold audit (`/audit`); the State section is trusted only as of this date
 
 ## Stage
-Stage 17 `[ IN PROGRESS ]` (merge and weaving safety). Enhanced IDM rejected (eidm-note);
-cut-ins vs NGSIM located the excess in ramp merges; the missing zipper (mergers overtaken
-~5× vs NGSIM 0.21) is the open design question (cutins-note)
+Stage 18 `[ DONE 2026-11-13 ]` (presentation: Claude Basic live view, scenario presets, for
+showing incoming grad students). Stage 17 `[ IN PROGRESS ]` (merge and weaving safety) unchanged:
+the zipper costs queue discharge; the tradeoff is with Chris (DEVLOG 2026-09-30)
 
 ## State
 - Program goals (DEVPLAN, 2026-09-22): (1) cleaner, less rule-based 2D model; (2) traffic
@@ -16,15 +16,20 @@ cut-ins vs NGSIM located the excess in ramp merges; the missing zipper (mergers 
   rear-referenced cascade. Perception fallible: looming-evidence reflex, glances as a
   process, peripheral lane keeping, shoulder-check skips, post-crash obstacles, TTC and
   PET metrics. No crash rule anywhere. Ideal point = v0.4.1 behaviour exactly.
-- Browser: safety panel (rates vs SHRP2, PET, crash mix), near-crash graph, safety colour
-  mode, reaction-time × and glance-rate × sliders, Drivers human/ideal toggle.
-- smoke 10/10 PASS + VALIDATION PASS + SWEEP PASS (main-realm loader, 23 s / 2 min);
-  runner → Server → Mongo round trip VERIFIED 2026-09-23 (scratch, dropped)
+- Browser (Stage 18, @ v0.9-5-gb11e421 pre-commit): Claude Basic 0.6.0 vendored in `vendor/`;
+  `.cb-sim` layout, controls under the world, `<cb-sim-*>` charts (speed, speed heatmap, flow,
+  queue, near-crashes, hard-braking rate vs SHRP2, crashes by type), a per-500-m Edie flow–density
+  scatter, a "What am I looking at" card; six scenario presets (`src/scenarios.js`), opens on
+  rush-hour interchanges. Looked at in the browser pane 2026-11-13 (dark + paper, wide + stacked)
+- smoke PASS + VALIDATION PASS @ v0.9-5-gb11e421-dirty (2026-11-13, pre-commit); smoke output
+  identical to b11e421 outside the renderer check T4 (model untouched). SWEEP last PASS
+  2026-09-25 (not rerun). Runner → Server → Mongo round trip VERIFIED 2026-09-23 (scratch, dropped)
 - Published: github.com/algorithm0r/Traffic-Sim; Pages at https://algorithm0r.github.io/Traffic-Sim/
+  (Pages still serves the pre-Stage-18 view: the Stage 18 commit is local, not pushed)
 - DB path VERIFIED (socket transport through the research Server on mint)
 - Browser: Chris eyeballed the safety views, rotated bodies and merging 2026-09-23 —
-  "looking great", and the phase figure 2026-09-24 ("really cool"). Bicycle body is the
-  DEFAULT (suites pin 'lane' for the 1D controls)
+  "looking great", and the phase figure 2026-09-24 ("really cool"). He has NOT yet seen the
+  Stage 18 view. Bicycle body is the DEFAULT (suites pin 'lane' for the 1D controls)
 - Open road (`openRoad`) for both bodies and lane drops (`laneDropAt`, bicycle); trucks'
   heading capped by length (the open-road merge exposed cab overshoot at the ideal point)
 
@@ -48,8 +53,8 @@ cut-ins vs NGSIM located the excess in ramp merges; the missing zipper (mergers 
   (29 → 62), phase boundary moves out (over-stabilised)
 
 ## Branches / tags
-- `main` tracks origin/main; tags v0.1-v0.4.1, v0.5-v0.8, **v0.9** (2026-09-25: Stage 16, SUMO
-  comparison)
+- `main` tracks origin/main (at b11e421 as last fetched); the Stage 18 commit is local only; tags
+  v0.1-v0.4.1, v0.5-v0.8, **v0.9** (2026-09-25: Stage 16, SUMO comparison)
 
 ## Open
 - Realization variance 4-5× between independent 10⁵ veh·km sets — quote spreads, not Poisson
@@ -57,11 +62,15 @@ cut-ins vs NGSIM located the excess in ramp merges; the missing zipper (mergers 
 - Runtimes (main realm): smoke ~40 s; validate ~2 min; sweep ~3 min; phase ~9 min;
   calib ~2 min per variant; capdrop ~30 min; SUMO grid ~4 h CPU (SL2015 dominates)
 - Workstation load: keep batches ≤4 processes (an 18-process batch hard-reset the machine)
+- The browser view still writes a packet to the research DB at 30 sim-minutes (Backlog)
+- The hard-braking near-crash chart shows the model ~10³× above SHRP2 in congested scenarios
+  (Stage 17's problem, visible to any viewer; Backlog)
 
 ## Next action
-Stage 17: the zipper — calibrate the merge process to NGSIM lane 7 (design decision with
-Chris: s0 relaxation during merges, cooperation onset, LMRS acceptance + clamp). Blocked item: a manual-driving glance-duration
-reference for the attention tail.
+Chris looks at the Stage 18 view (http://localhost:8000/research/Traffic%20Sim/sim/) and decides
+whether to push it to Pages before showing the students. Research: Stage 17's zipper decision
+with Chris (which claimants a follower yields to). Blocked item: a manual-driving
+glance-duration reference for the attention tail.
 
 ## Blockers
 - none
